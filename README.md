@@ -3,6 +3,8 @@
 PySide6 serial terminal for IoT devices with logging, plotting, and command presets. I vibe-coded this as a test and because i
 was not happy with existing terminal applications for my IoT work. 
 
+![Screenshot](static/screenshot.png)
+
 ## Features
 
 - Serial connection with configurable port settings
