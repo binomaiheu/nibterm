@@ -1,0 +1,22 @@
+[project]
+name = "nibterm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Bino Maiheu", email = "binomaiheu@gmail.com" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.24.4",
+    "pyqtgraph>=0.13.3",
+    "pyside6>=6.6.3.1",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+nibterm = "nibterm.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

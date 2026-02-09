@@ -1,0 +1,20 @@
+from __future__ import annotations
+
+from PySide6.QtSerialPort import QSerialPort
+
+
+DEFAULT_BAUD_RATE = 115200
+DEFAULT_DATA_BITS = QSerialPort.DataBits.Data8
+DEFAULT_PARITY = QSerialPort.Parity.NoParity
+DEFAULT_STOP_BITS = QSerialPort.StopBits.OneStop
+DEFAULT_FLOW_CONTROL = QSerialPort.FlowControl.NoFlowControl
+
+DEFAULT_LINE_ENDING = "\\n"
+DEFAULT_LOCAL_ECHO = True
+DEFAULT_SEND_ON_ENTER = True
+DEFAULT_AUTO_RECONNECT = False
+DEFAULT_TIMESTAMP_PREFIX = False
+
+DEFAULT_PLOT_BUFFER_SIZE = 2000
+DEFAULT_PLOT_UPDATE_MS = 100
+DEFAULT_PLOT_DELIMITER = ","

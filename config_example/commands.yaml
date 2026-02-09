@@ -1,0 +1,7 @@
+# Example command preset
+name: ExampleDevice
+commands:
+  - label: Ping
+    command: "ping\n"
+  - label: Status
+    command: "status\n"
