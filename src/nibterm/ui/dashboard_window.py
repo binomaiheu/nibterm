@@ -239,11 +239,11 @@ class DashboardWindow(QWidget):
         if config.mode == "xy":
             x_label = self._variable_label(config.xy_x_var, config)
             y_label = self._variable_label(config.xy_y_var, config)
-            return f"XY: {x_label} vs {y_label}"
+            return f"XY: {x_label} vs {y_label} (buffer: {config.buffer_size})"
         labels = [self._variable_label(key, config) for key in config.series_variables]
         if not labels:
-            return "Timeseries"
-        return f"Timeseries: {', '.join(labels)}"
+            return f"Timeseries (buffer: {config.buffer_size})"
+        return f"Timeseries: {', '.join(labels)} (buffer: {config.buffer_size})"
 
     def _variable_label(self, key: str, config: PlotConfig) -> str:
         if key.startswith("c") and key[1:].isdigit():
