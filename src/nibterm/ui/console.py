@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from __future__ import annotations
 
-from PySide6.QtCore import QDateTime
+from PySide6.QtCore import QDateTime, Qt
 from PySide6.QtGui import QColor, QFont, QPalette, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit
 
@@ -47,11 +47,20 @@ class ConsoleWidget(QPlainTextEdit):
         for line in lines:
             stripped = line.rstrip("\r\n")
             completed_lines.append(stripped)
-            display_line = stripped
             if prefix_timestamp:
-                ts = QDateTime.currentDateTime().toString("HH:mm:ss.zzz")
-                display_line = f"[{ts}] {display_line}"
-            self.appendPlainText(display_line)
+                ts = QDateTime.currentDateTime().toString(Qt.ISODateWithMs)
+                cursor = self.textCursor()
+                cursor.movePosition(QTextCursor.MoveOperation.End)
+                ts_format = QTextCharFormat()
+                ts_format.setForeground(QColor("#2e7d32"))
+                cursor.setCharFormat(ts_format)
+                cursor.insertText(f"[{ts}] ")
+                cursor.setCharFormat(QTextCharFormat())
+                cursor.insertText(stripped)
+                cursor.insertBlock()
+                self.setTextCursor(cursor)
+            else:
+                self.appendPlainText(stripped)
 
         if completed_lines:
             self._scroll_to_bottom()
