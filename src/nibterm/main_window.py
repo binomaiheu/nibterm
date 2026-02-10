@@ -148,13 +148,30 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(self._action_log_start)
         tools_menu.addAction(self._action_log_stop)
 
-        view_menu = menu.addMenu("View")
+        view_menu = menu.addMenu("Dashboard")
         self._action_plot_settings = QAction("Data Pipeline...", self)
         self._action_plot_settings.triggered.connect(self._open_plot_settings)
         view_menu.addAction(self._action_plot_settings)
+        view_menu.addSeparator()
+        self._action_add_plot = QAction("Add plot", self)
+        self._action_remove_plot = QAction("Remove plot", self)
+        self._action_setup_plot = QAction("Setup plot...", self)
         self._action_clear_plot = QAction("Clear plot", self)
+        self._action_add_plot.triggered.connect(self._add_plot)
+        self._action_remove_plot.triggered.connect(self._remove_plot)
+        self._action_setup_plot.triggered.connect(self._setup_plot)
         self._action_clear_plot.triggered.connect(self._clear_plot)
+        view_menu.addAction(self._action_add_plot)
+        view_menu.addAction(self._action_remove_plot)
+        view_menu.addAction(self._action_setup_plot)
         view_menu.addAction(self._action_clear_plot)
+        view_menu.addSeparator()
+        self._action_tile_plots = QAction("Tile plots", self)
+        self._action_cascade_plots = QAction("Cascade plots", self)
+        self._action_tile_plots.triggered.connect(self._tile_plots)
+        self._action_cascade_plots.triggered.connect(self._cascade_plots)
+        view_menu.addAction(self._action_tile_plots)
+        view_menu.addAction(self._action_cascade_plots)
 
         help_menu = menu.addMenu("Help")
         self._action_about = QAction("About", self)
@@ -387,8 +404,34 @@ class MainWindow(QMainWindow):
             self._save_settings()
 
     def _clear_plot(self) -> None:
+        if not self._dashboard_window or not self._dashboard_window.has_active_plot():
+            QMessageBox.warning(self, "Plot", "No plot is selected.")
+            return
+        self._dashboard_window.clear_active_plot()
+
+    def _add_plot(self) -> None:
         if self._dashboard_window:
-            self._dashboard_window.clear_plots()
+            self._dashboard_window.add_plot()
+
+    def _remove_plot(self) -> None:
+        if not self._dashboard_window or not self._dashboard_window.has_active_plot():
+            QMessageBox.warning(self, "Plot", "No plot is selected.")
+            return
+        self._dashboard_window.remove_plot()
+
+    def _setup_plot(self) -> None:
+        if not self._dashboard_window or not self._dashboard_window.has_active_plot():
+            QMessageBox.warning(self, "Plot", "No plot is selected.")
+            return
+        self._dashboard_window.setup_active_plot()
+
+    def _tile_plots(self) -> None:
+        if self._dashboard_window:
+            self._dashboard_window.tile_plots()
+
+    def _cascade_plots(self) -> None:
+        if self._dashboard_window:
+            self._dashboard_window.cascade_plots()
 
     def _save_settings(self) -> None:
         self._serial_settings.to_qsettings(self._settings)

@@ -31,24 +31,8 @@ class DashboardWindow(QWidget):
 
         self._toolbar = QToolBar("Dashboard")
         self._toolbar.setMovable(False)
-        self._action_add = QAction("Add plot", self)
-        self._action_remove = QAction("Remove plot", self)
-        self._action_setup = QAction("Setup", self)
-        self._action_tile = QAction("Tile", self)
-        self._action_cascade = QAction("Cascade", self)
-        self._action_add.triggered.connect(self.add_plot)
-        self._action_remove.triggered.connect(self.remove_plot)
-        self._action_setup.triggered.connect(self._open_setup)
-        self._action_tile.triggered.connect(self._mdi.tileSubWindows)
-        self._action_cascade.triggered.connect(self._mdi.cascadeSubWindows)
-        self._toolbar.addAction(self._action_add)
-        self._toolbar.addAction(self._action_remove)
-        self._toolbar.addAction(self._action_setup)
-        self._toolbar.addAction(self._action_tile)
-        self._toolbar.addAction(self._action_cascade)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(self._toolbar)
         layout.addWidget(self._mdi)
 
         self._plot_panels: list[PlotPanel] = []
@@ -162,6 +146,24 @@ class DashboardWindow(QWidget):
     def clear_plots(self) -> None:
         for plot in self._plot_panels:
             plot.clear()
+
+    def has_active_plot(self) -> bool:
+        plot, _ = self._current_plot()
+        return plot is not None
+
+    def clear_active_plot(self) -> None:
+        plot, _ = self._current_plot()
+        if plot:
+            plot.clear()
+
+    def setup_active_plot(self) -> None:
+        self._open_setup()
+
+    def tile_plots(self) -> None:
+        self._mdi.tileSubWindows()
+
+    def cascade_plots(self) -> None:
+        self._mdi.cascadeSubWindows()
 
     def closeEvent(self, event) -> None:
         event.ignore()
