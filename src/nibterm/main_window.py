@@ -59,6 +59,7 @@ class MainWindow(QMainWindow):
 
         self._settings_dialog = SettingsDialog(self)
         self._settings_dialog.load(self._serial_settings, self._appearance_settings)
+        self._settings_dialog.settings_applied.connect(self._apply_settings)
 
         self._console = ConsoleWidget()
         self._console.set_appearance(
@@ -182,7 +183,6 @@ class MainWindow(QMainWindow):
         self._plot_toolbar.setObjectName("PlotToolbar")
         self._plot_toolbar.setMovable(False)
 
-        file_menu.addAction(self._action_connect_toggle)
         file_menu.addSeparator()
         self._action_load_preset = QAction("Load preset...", self)
         self._action_clear_preset = QAction("Clear preset", self)
@@ -209,14 +209,10 @@ class MainWindow(QMainWindow):
         self._settings_dialog.refresh_ports()
         self._settings_dialog.load(self._serial_settings, self._appearance_settings)
         if self._settings_dialog.exec() == QDialog.DialogCode.Accepted:
-            self._serial_settings = self._settings_dialog.serial_settings()
-            self._appearance_settings = self._settings_dialog.appearance_settings()
-            self._apply_appearance()
-            self._port_manager.set_auto_reconnect(self._serial_settings.auto_reconnect)
-            if self._port_manager.is_open():
-                self._port_manager.close()
-                self._connect_serial()
-            self._save_settings()
+            self._apply_settings(
+                self._settings_dialog.serial_settings(),
+                self._settings_dialog.appearance_settings(),
+            )
 
     def _apply_appearance(self) -> None:
         self._console.set_appearance(
@@ -225,6 +221,20 @@ class MainWindow(QMainWindow):
             self._appearance_settings.background_color,
             self._appearance_settings.text_color,
         )
+
+    def _apply_settings(
+        self,
+        serial_settings: SerialSettings,
+        appearance_settings: AppearanceSettings,
+    ) -> None:
+        self._serial_settings = serial_settings
+        self._appearance_settings = appearance_settings
+        self._apply_appearance()
+        self._port_manager.set_auto_reconnect(self._serial_settings.auto_reconnect)
+        if self._port_manager.is_open():
+            self._port_manager.close()
+            self._connect_serial()
+        self._save_settings()
 
     @Slot()
     def _connect_serial(self) -> None:

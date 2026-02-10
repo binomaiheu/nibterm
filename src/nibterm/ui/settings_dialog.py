@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QColor, QFont, QIntValidator
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 from PySide6.QtWidgets import (
@@ -24,6 +25,8 @@ from ..serial.settings import AppearanceSettings, SerialSettings
 
 
 class SettingsDialog(QDialog):
+    settings_applied = Signal(SerialSettings, AppearanceSettings)
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Settings")
@@ -261,6 +264,7 @@ class SettingsDialog(QDialog):
             background_color=self._appearance_settings.background_color,
             text_color=self._appearance_settings.text_color,
         )
+        self.settings_applied.emit(self._serial_settings, self._appearance_settings)
 
     def accept(self) -> None:
         self._apply()
