@@ -16,7 +16,7 @@ was not happy with existing terminal applications for my IoT work.
 - Terminal theming (font and colors)
 - Log incoming data to file
 - Real-time plotting via pyqtgraph (CSV-like lines)
-- YAML command presets that render buttons in the UI
+- YAML command presets with configurable parameters that render as buttons in the UI
 
 ## Requirements
 
@@ -46,8 +46,8 @@ uv run nibterm
 ## Command preset example (YAML)
 
 ```yaml
-# Preset for ESP32 device
-name: ESP32
+# Preset for vmm-iot-owlogger
+name: vmm-iot-owlogger
 commands:
   - label: Reset
     command: "rst\n"
