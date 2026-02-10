@@ -1,8 +1,17 @@
 # Example command preset
-name: ExampleDevice
+name: vmm-iot-owlogger
 commands:
   - label: ping
     command: "ping\n"
   - label: status
     command: "status\n"
     color: "#e3f2fd"
+  - label: set pwm
+    command: "pwm {duty} {freq}\n"
+    params:
+      - name: duty
+        label: Duty (%)
+        default: "50"
+      - name: freq
+        label: Freq (Hz)
+        default: "1000"
