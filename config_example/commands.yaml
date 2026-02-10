@@ -1,7 +1,8 @@
 # Example command preset
 name: ExampleDevice
 commands:
-  - label: Ping
+  - label: ping
     command: "ping\n"
-  - label: Status
+  - label: status
     command: "status\n"
+    color: "#e3f2fd"

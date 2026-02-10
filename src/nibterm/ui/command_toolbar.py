@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QFileDialog, QToolBar, QMessageBox
+from PySide6.QtGui import QAction, QFontMetrics
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QToolBar, QToolButton
 
 from ..config.commands_schema import CommandPreset, load_preset
 
@@ -17,6 +17,7 @@ class CommandToolbar(QToolBar):
         super().__init__("Commands", parent)
         self.setOrientation(Qt.Orientation.Vertical)
         self.setMovable(False)
+        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
 
         self._preset: CommandPreset | None = None
         self._command_actions: list[QAction] = []
@@ -59,8 +60,26 @@ class CommandToolbar(QToolBar):
 
         for command in self._preset.commands:
             action = QAction(command.label, self)
+            if command.color:
+                action.setData({"color": command.color})
             action.triggered.connect(
                 lambda _checked=False, cmd=command.command: self.command_requested.emit(cmd)
             )
             self.addAction(action)
             self._command_actions.append(action)
+        self._update_button_sizes()
+
+    def _update_button_sizes(self) -> None:
+        if not self._command_actions:
+            return
+        fm = QFontMetrics(self.font())
+        max_width = max(fm.horizontalAdvance(action.text()) for action in self._command_actions)
+        padded = max_width + 24
+        for button in self.findChildren(QToolButton):
+            action = button.defaultAction()
+            if action in self._command_actions:
+                if isinstance(action.data(), dict):
+                    color = action.data().get("color")
+                    if color:
+                        button.setStyleSheet(f"background-color: {color};")
+                button.setFixedWidth(padded)

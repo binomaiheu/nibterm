@@ -10,6 +10,7 @@ import yaml
 class Command:
     label: str
     command: str
+    color: str | None = None
 
 
 @dataclass
@@ -37,8 +38,11 @@ def load_preset(path: str | Path) -> CommandPreset:
             raise ValueError("Each command must be a mapping with label and command.")
         label = entry.get("label")
         command = entry.get("command")
+        color = entry.get("color")
         if not isinstance(label, str) or not isinstance(command, str):
             raise ValueError("Command entries must include 'label' and 'command' strings.")
-        parsed.append(Command(label=label, command=command))
+        if color is not None and not isinstance(color, str):
+            raise ValueError("'color' must be a string if provided.")
+        parsed.append(Command(label=label, command=command, color=color))
 
     return CommandPreset(name=name, commands=parsed)

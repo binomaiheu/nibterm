@@ -29,6 +29,9 @@ class PlotConfig:
     y_column: int = 1
     column_names: dict[int, str] = field(default_factory=dict)
     transform_expressions: list[TransformExpression] = field(default_factory=list)
+    series_variables: list[str] = field(default_factory=list)
+    xy_x_var: str = "c0"
+    xy_y_var: str = "c1"
     buffer_size: int = defaults.DEFAULT_PLOT_BUFFER_SIZE
     update_ms: int = defaults.DEFAULT_PLOT_UPDATE_MS
 
@@ -46,6 +49,12 @@ class PlotConfig:
             "plot/transform",
             _serialize_transform(self.transform_expressions),
         )
+        settings.setValue(
+            "plot/series_vars",
+            _serialize_string_list(self.series_variables),
+        )
+        settings.setValue("plot/xy_x_var", self.xy_x_var)
+        settings.setValue("plot/xy_y_var", self.xy_y_var)
         settings.setValue("plot/buffer_size", self.buffer_size)
         settings.setValue("plot/update_ms", self.update_ms)
 
@@ -56,6 +65,17 @@ class PlotConfig:
         transforms = _parse_transform_string(
             settings.value("plot/transform", "", str)
         )
+        series_vars = _parse_string_list(
+            settings.value("plot/series_vars", "", str)
+        )
+        xy_x_var = settings.value("plot/xy_x_var", "", str)
+        xy_y_var = settings.value("plot/xy_y_var", "", str)
+        if not series_vars:
+            series_vars = [f"c{idx}" for idx in columns]
+        if not xy_x_var:
+            xy_x_var = f"c{settings.value('plot/x_column', 0, int)}"
+        if not xy_y_var:
+            xy_y_var = f"c{settings.value('plot/y_column', 1, int)}"
         return PlotConfig(
             delimiter=settings.value(
                 "plot/delimiter",
@@ -68,6 +88,9 @@ class PlotConfig:
             y_column=settings.value("plot/y_column", 1, int),
             column_names=names,
             transform_expressions=transforms,
+            series_variables=series_vars,
+            xy_x_var=xy_x_var,
+            xy_y_var=xy_y_var,
             buffer_size=settings.value(
                 "plot/buffer_size",
                 defaults.DEFAULT_PLOT_BUFFER_SIZE,
@@ -101,6 +124,7 @@ class PlotPanel(QWidget):
             ax = self._plot.getAxis(axis)
             ax.setPen(pg.mkPen(color="k"))
             ax.setTextPen(pg.mkPen(color="k"))
+        self._plot.getAxis("bottom").enableAutoSIPrefix(False)
         self._update_axis_labels()
 
         layout = QVBoxLayout(self)
@@ -145,29 +169,30 @@ class PlotPanel(QWidget):
             return
 
         variables, display_names = _build_variable_maps(values, self._config.column_names)
+        transform_values = _evaluate_transforms(
+            self._config.transform_expressions,
+            variables,
+        )
+        for name, value in transform_values:
+            variables[name] = value
+            display_names[name] = name
 
         if self._config.mode == "xy":
-            self._handle_xy(values, variables, display_names)
+            self._handle_xy(variables, display_names)
         else:
-            self._handle_timeseries(values, variables, display_names)
+            self._handle_timeseries(variables, display_names)
 
     def _handle_timeseries(
         self,
-        values: list[float | None],
         variables: dict[str, float],
-        display_names: dict[int, str],
+        display_names: dict[str, str],
     ) -> None:
         series_points: list[tuple[str, float]] = []
-        if self._config.transform_expressions:
-            series_points = _evaluate_transforms(
-                self._config.transform_expressions,
-                variables,
-            )
-        else:
-            for idx in self._config.columns:
-                if 0 <= idx < len(values) and values[idx] is not None:
-                    name = display_names.get(idx, f"c{idx}")
-                    series_points.append((name, float(values[idx])))
+        for var in self._config.series_variables:
+            if var not in variables:
+                continue
+            label = display_names.get(var, var)
+            series_points.append((label, float(variables[var])))
 
         if not series_points:
             return
@@ -181,29 +206,15 @@ class PlotPanel(QWidget):
 
     def _handle_xy(
         self,
-        values: list[float | None],
         variables: dict[str, float],
-        display_names: dict[int, str],
+        display_names: dict[str, str],
     ) -> None:
-        if not (0 <= self._config.x_column < len(values)):
+        x_key = self._config.xy_x_var
+        y_key = self._config.xy_y_var
+        if x_key not in variables or y_key not in variables:
             return
-        x_value_raw = values[self._config.x_column]
-        if x_value_raw is None:
-            return
-        x_value = float(x_value_raw)
-
-        if self._config.transform_expressions:
-            series_points = _evaluate_transforms(
-                self._config.transform_expressions,
-                variables,
-            )
-        else:
-            if not (0 <= self._config.y_column < len(values)):
-                return
-            if values[self._config.y_column] is None:
-                return
-            name = display_names.get(self._config.y_column, f"c{self._config.y_column}")
-            series_points = [(name, float(values[self._config.y_column]))]
+        x_value = float(variables[x_key])
+        series_points = [(display_names.get(y_key, y_key), float(variables[y_key]))]
 
         for name, y_value in series_points:
             self._append_point(name, x_value, y_value)
@@ -254,16 +265,19 @@ class PlotPanel(QWidget):
 
     def _update_axis_labels(self) -> None:
         if self._config.mode == "xy":
-            x_label = self._column_label(self._config.x_column)
+            x_label = self._variable_label(self._config.xy_x_var)
             self._plot.setLabel("bottom", x_label)
+            y_label = self._variable_label(self._config.xy_y_var)
+            self._plot.setLabel("left", y_label)
         else:
-            self._plot.setLabel("bottom", "Time")
-        self._plot.setLabel("left", "Value")
+            self._plot.setLabel("bottom", "timestamp")
+            self._plot.setLabel("left", "Value")
 
-    def _column_label(self, index: int) -> str:
-        if index in self._config.column_names:
-            return self._config.column_names[index]
-        return f"c{index}"
+    def _variable_label(self, key: str) -> str:
+        if key.startswith("c") and key[1:].isdigit():
+            index = int(key[1:])
+            return self._config.column_names.get(index, key)
+        return key
 
 
 def _parse_int_list(text: str, default: list[int]) -> list[int]:
@@ -307,6 +321,18 @@ def _serialize_column_names(names: dict[int, str]) -> str:
     return "; ".join(parts)
 
 
+def _serialize_string_list(values: list[str]) -> str:
+    return "; ".join(value for value in values if value)
+
+
+def _parse_string_list(text: str) -> list[str]:
+    values: list[str] = []
+    for chunk in text.split(";"):
+        chunk = chunk.strip()
+        if chunk:
+            values.append(chunk)
+    return values
+
 def _serialize_transform(transforms: list[TransformExpression]) -> str:
     parts: list[str] = []
     for transform in transforms:
@@ -338,16 +364,17 @@ def _parse_transform_string(text: str) -> list[TransformExpression]:
 def _build_variable_maps(
     values: list[float | None],
     column_names: dict[int, str],
-) -> tuple[dict[str, float], dict[int, str]]:
+) -> tuple[dict[str, float], dict[str, str]]:
     variables: dict[str, float] = {}
-    display_names: dict[int, str] = {}
+    display_names: dict[str, str] = {}
     for idx, value in enumerate(values):
         if value is None:
             continue
-        variables[f"c{idx}"] = float(value)
+        key = f"c{idx}"
+        variables[key] = float(value)
+        display_names[key] = column_names.get(idx, key)
         if idx in column_names:
             name = column_names[idx]
-            display_names[idx] = name
             ident = _sanitize_identifier(name)
             if ident:
                 variables[ident] = float(value)

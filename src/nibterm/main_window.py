@@ -98,6 +98,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self._status)
         self._status_label = QLabel("Disconnected")
         self._status.addWidget(self._status_label)
+        self._reconnecting = False
 
         self._create_actions()
         self._restore_window_state()
@@ -218,8 +219,17 @@ class MainWindow(QMainWindow):
     def _on_connection_changed(self, connected: bool) -> None:
         self._action_connect.setEnabled(not connected)
         self._action_disconnect.setEnabled(connected)
-        status = "Connected" if connected else "Disconnected"
-        self._status_label.setText(status)
+        if connected:
+            self._status_label.setText(self._connection_status_text())
+        else:
+            self._status_label.setText("Disconnected")
+        if connected and self._reconnecting:
+            self._console.append_status_message(
+                "Device reconnected.",
+                self._serial_settings.timestamp_prefix,
+                "#0d47a1",
+            )
+            self._reconnecting = False
 
     @Slot(str)
     def _on_serial_error(self, message: str) -> None:
@@ -228,12 +238,28 @@ class MainWindow(QMainWindow):
     @Slot(bool)
     def _on_reconnecting(self, reconnecting: bool) -> None:
         if reconnecting:
-            self._status_label.setText("Waiting for connection...")
+            port = self._serial_settings.port_name or "device"
+            self._status_label.setText(f"Waiting for {port}")
+            if not self._reconnecting:
+                self._console.append_status_message(
+                    "Waiting for device connection...",
+                    self._serial_settings.timestamp_prefix,
+                    "#0d47a1",
+                )
+                self._reconnecting = True
         else:
             if self._port_manager.is_open():
-                self._status_label.setText("Connected")
+                self._status_label.setText(self._connection_status_text())
             else:
                 self._status_label.setText("Disconnected")
+
+    def _connection_status_text(self) -> str:
+        s = self._serial_settings
+        return (
+            f"Connected ({s.port_name}, {s.baud_rate}, "
+            f"{s.data_bits.name}, {s.parity.name}, {s.stop_bits.name}, "
+            f"{s.flow_control.name})"
+        )
 
     @Slot(bytes)
     def _on_data_received(self, data: bytes) -> None:

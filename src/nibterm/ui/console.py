@@ -51,11 +51,7 @@ class ConsoleWidget(QPlainTextEdit):
                 ts = QDateTime.currentDateTime().toString(Qt.ISODateWithMs)
                 cursor = self.textCursor()
                 cursor.movePosition(QTextCursor.MoveOperation.End)
-                ts_format = QTextCharFormat()
-                ts_format.setForeground(QColor("#2e7d32"))
-                cursor.setCharFormat(ts_format)
-                cursor.insertText(f"[{ts}] ")
-                cursor.setCharFormat(QTextCharFormat())
+                self._insert_timestamp(cursor, ts)
                 cursor.insertText(stripped)
                 cursor.insertBlock()
                 self.setTextCursor(cursor)
@@ -85,6 +81,35 @@ class ConsoleWidget(QPlainTextEdit):
             cursor.setCharFormat(QTextCharFormat())
             self.setTextCursor(cursor)
         self._scroll_to_bottom()
+
+    def append_status_message(
+        self,
+        message: str,
+        prefix_timestamp: bool,
+        color: str,
+    ) -> None:
+        if not message:
+            return
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        if prefix_timestamp:
+            ts = QDateTime.currentDateTime().toString(Qt.ISODateWithMs)
+            self._insert_timestamp(cursor, ts)
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(color))
+        cursor.setCharFormat(fmt)
+        cursor.insertText(message)
+        cursor.insertBlock()
+        cursor.setCharFormat(QTextCharFormat())
+        self.setTextCursor(cursor)
+        self._scroll_to_bottom()
+
+    def _insert_timestamp(self, cursor: QTextCursor, ts: str) -> None:
+        ts_format = QTextCharFormat()
+        ts_format.setForeground(QColor("#2e7d32"))
+        cursor.setCharFormat(ts_format)
+        cursor.insertText(f"[{ts}] ")
+        cursor.setCharFormat(QTextCharFormat())
 
     def _scroll_to_bottom(self) -> None:
         scrollbar = self.verticalScrollBar()
