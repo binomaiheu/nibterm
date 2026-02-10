@@ -20,7 +20,7 @@ was not happy with existing terminal applications for my IoT work.
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
 
 ## Setup
@@ -35,6 +35,14 @@ uv sync
 uv run nibterm
 ```
 
+## Usage
+
+- Open **View → Data Pipeline** to set delimiter, column names, and transformations.
+- Use the **Connection** toolbar button to connect/disconnect a serial port.
+- Send commands from the input field or load a YAML preset from **File → Load preset...**.
+- Switch to the **Dashboard** tab to add plots and use **Setup** per plot.
+- Start logging from **Tools → Start logging...**.
+
 ## Command preset example (YAML)
 
 ```yaml
@@ -43,6 +51,10 @@ name: ESP32
 commands:
   - label: Reset
     command: "rst\n"
+    color: "#ffe0b2"
   - label: Temp
     command: "temp\n"
+  - label: Status
+    command: "status\n"
+    color: "#e3f2fd"
 ```
