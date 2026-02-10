@@ -27,6 +27,7 @@ from .ui.plot_settings_dialog import PlotSettingsDialog
 from .ui.settings_dialog import SettingsDialog
 from .ui.command_toolbar import CommandToolbar
 from .ui.plot_window import PlotWindow
+from .version import __version__
 
 
 class MainWindow(QMainWindow):
@@ -146,6 +147,11 @@ class MainWindow(QMainWindow):
         self._action_clear_plot.triggered.connect(self._clear_plot)
         view_menu.addAction(self._action_clear_plot)
 
+        help_menu = menu.addMenu("Help")
+        self._action_about = QAction("About", self)
+        self._action_about.triggered.connect(self._show_about)
+        help_menu.addAction(self._action_about)
+
         self._plot_toolbar = self.addToolBar("Plot")
         self._plot_toolbar.setObjectName("PlotToolbar")
         self._plot_toolbar.setMovable(False)
@@ -252,6 +258,16 @@ class MainWindow(QMainWindow):
                 self._status_label.setText(self._connection_status_text())
             else:
                 self._status_label.setText("Disconnected")
+
+    def _show_about(self) -> None:
+        version_text = __version__
+        if version_text == "unknown":
+            version_text = "unknown (no git info)"
+        QMessageBox.about(
+            self,
+            "About nibterm",
+            f"nibterm\nVersion: {version_text}",
+        )
 
     def _connection_status_text(self) -> str:
         s = self._serial_settings
