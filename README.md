@@ -1,7 +1,10 @@
-# nibterm
+# nibTerm
 
-PySide6 serial terminal for IoT devices with logging, plotting, and command presets. I vibe-coded this as a test and because i
-was not happy with existing terminal applications for my IoT work. 
+PySide6 serial terminal for IoT devices with logging, plotting, and command presets. 
+
+I vibe-coded this as a test and because I was not happy with existing terminal applications for my IoT work. I needed something which allows to define buttons with parameters to interact with the firmware, has plotting functionality (for monitoring device sensors via the serial line) as well as auto-reconnect for when the IoT device sleeps & attaches/detaches the Serial line. 
+
+So this is my vibe-coded attempt to create something which ticks all those boxes. Screenshots of some version below. 
 
 <p align="center">
   <img src="static/terminal.png" alt="Terminal" width="400" style="display:inline-block;vertical-align:top;margin-right:10px;">
