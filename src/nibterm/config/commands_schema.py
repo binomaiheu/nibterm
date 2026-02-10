@@ -11,6 +11,7 @@ class CommandParam:
     name: str
     label: str | None = None
     default: str | None = None
+    description: str | None = None
 
 
 @dataclass
@@ -19,6 +20,7 @@ class Command:
     command: str
     color: str | None = None
     params: list[CommandParam] | None = None
+    description: str | None = None
 
 
 @dataclass
@@ -48,10 +50,13 @@ def load_preset(path: str | Path) -> CommandPreset:
         command = entry.get("command")
         color = entry.get("color")
         params_raw = entry.get("params", [])
+        description = entry.get("description")
         if not isinstance(label, str) or not isinstance(command, str):
             raise ValueError("Command entries must include 'label' and 'command' strings.")
         if color is not None and not isinstance(color, str):
             raise ValueError("'color' must be a string if provided.")
+        if description is not None and not isinstance(description, str):
+            raise ValueError("'description' must be a string if provided.")
         params: list[CommandParam] = []
         if params_raw:
             if not isinstance(params_raw, list):
@@ -68,7 +73,25 @@ def load_preset(path: str | Path) -> CommandPreset:
                 default = param.get("default")
                 if default is not None and not isinstance(default, str):
                     default = str(default)
-                params.append(CommandParam(name=param_name, label=label_text, default=default))
-        parsed.append(Command(label=label, command=command, color=color, params=params))
+                param_description = param.get("description")
+                if param_description is not None and not isinstance(param_description, str):
+                    raise ValueError("'description' must be a string if provided.")
+                params.append(
+                    CommandParam(
+                        name=param_name,
+                        label=label_text,
+                        default=default,
+                        description=param_description,
+                    )
+                )
+        parsed.append(
+            Command(
+                label=label,
+                command=command,
+                color=color,
+                params=params,
+                description=description,
+            )
+        )
 
     return CommandPreset(name=preset_name, commands=parsed)

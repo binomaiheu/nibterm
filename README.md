@@ -51,19 +51,25 @@ name: vmm-iot-owlogger
 commands:
   - label: Reset
     command: "rst\n"
+    description: Reboot the device.
     color: "#ffe0b2"
   - label: Temp
     command: "temp\n"
+    description: Read current temperature.
   - label: Status
     command: "status\n"
+    description: Request device status.
     color: "#e3f2fd"
   - label: Set PWM
     command: "pwm {duty} {freq}\n"
+    description: Configure PWM output.
     params:
       - name: duty
         label: Duty (%)
         default: "50"
+        description: Duty cycle percentage.
       - name: freq
         label: Frequency (Hz)
         default: "1000"
+        description: PWM frequency in Hertz.
 ```

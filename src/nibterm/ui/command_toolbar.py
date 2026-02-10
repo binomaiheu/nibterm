@@ -134,6 +134,8 @@ class CommandToolbar(QToolBar):
         button.setDefaultAction(action)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         button.setMinimumHeight(26)
+        if command.description:
+            button.setToolTip(command.description)
         header_layout.addWidget(button)
         summary = QLabel("")
         summary.setStyleSheet("color: #666;")
@@ -149,6 +151,8 @@ class CommandToolbar(QToolBar):
                 child = QTreeWidgetItem(item)
                 label = param.label or param.name
                 child.setText(0, label)
+                if param.description:
+                    child.setToolTip(0, param.description)
                 child.setSizeHint(0, QSize(0, 28))
                 entry = QLineEdit()
                 key = self._param_key(command.label, param.name)

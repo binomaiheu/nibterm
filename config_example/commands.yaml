@@ -3,15 +3,20 @@ name: vmm-iot-owlogger
 commands:
   - label: ping
     command: "ping\n"
+    description: Simple connectivity check.
   - label: status
     command: "status\n"
+    description: Request device status.
     color: "#e3f2fd"
   - label: set pwm
     command: "pwm {duty} {freq}\n"
+    description: Configure PWM output.
     params:
       - name: duty
         label: Duty (%)
         default: "50"
+        description: Duty cycle percentage.
       - name: freq
         label: Freq (Hz)
         default: "1000"
+        description: PWM frequency in Hertz.
