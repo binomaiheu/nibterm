@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         QCoreApplication.setOrganizationName("nibsoft")
         QCoreApplication.setApplicationName("nibterm")
 
-        self.setWindowTitle("nibterm - a vibe code serial terminal application")
+        self.setWindowTitle("nibterm - a vibe coded serial terminal application")
 
         self._settings = QSettings()
         self._serial_settings = SerialSettings.from_qsettings(self._settings)
