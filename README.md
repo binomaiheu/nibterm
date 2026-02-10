@@ -3,7 +3,11 @@
 PySide6 serial terminal for IoT devices with logging, plotting, and command presets. I vibe-coded this as a test and because i
 was not happy with existing terminal applications for my IoT work. 
 
-![Screenshot](static/screenshot.png)
+<p align="center">
+  <img src="static/terminal.png" alt="Terminal" width="400" style="display:inline-block;vertical-align:top;margin-right:10px;">
+  <img src="static/dashboard.png" alt="Dashboard" width="400" style="display:inline-block;vertical-align:top;">
+</p>
+
 
 ## Features
 
