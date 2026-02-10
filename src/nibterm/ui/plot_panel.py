@@ -217,15 +217,36 @@ class PlotPanel(QWidget):
         if not self._enabled:
             return
         for name, points in self._series.items():
+            color = self._curve_colors[len(self._curves) % len(self._curve_colors)]
             if name not in self._curves:
-                color = self._curve_colors[len(self._curves) % len(self._curve_colors)]
-                self._curves[name] = self._plot.plot(
-                    pen=pg.mkPen(color=color, width=2),
-                    name=name,
-                )
+                if self._config.mode == "xy":
+                    self._curves[name] = self._plot.plot(
+                        pen=None,
+                        symbol="o",
+                        symbolSize=5,
+                        symbolBrush=pg.mkBrush(color),
+                        symbolPen=pg.mkPen(color=color),
+                        name=name,
+                    )
+                else:
+                    self._curves[name] = self._plot.plot(
+                        pen=pg.mkPen(color=color, width=2),
+                        name=name,
+                    )
             x_values = [p[0] for p in points]
             y_values = [p[1] for p in points]
-            self._curves[name].setData(x_values, y_values)
+            if self._config.mode == "xy":
+                self._curves[name].setData(
+                    x_values,
+                    y_values,
+                    pen=None,
+                    symbol="o",
+                    symbolSize=5,
+                    symbolBrush=pg.mkBrush(color),
+                    symbolPen=pg.mkPen(color=color),
+                )
+            else:
+                self._curves[name].setData(x_values, y_values)
 
     def _reset_plot(self) -> None:
         self.clear()

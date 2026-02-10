@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from __future__ import annotations
+
 from PySide6.QtCore import QDateTime
-from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtGui import QColor, QFont, QPalette, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit
 
 
@@ -11,6 +13,7 @@ class ConsoleWidget(QPlainTextEdit):
         self.setReadOnly(True)
         self.document().setMaximumBlockCount(5000)
         self._line_buffer = ""
+        self._default_text_color = QColor("black")
 
     def set_appearance(
         self,
@@ -24,7 +27,8 @@ class ConsoleWidget(QPlainTextEdit):
 
         palette = self.palette()
         palette.setColor(QPalette.ColorRole.Base, QColor(background_color))
-        palette.setColor(QPalette.ColorRole.Text, QColor(text_color))
+        self._default_text_color = QColor(text_color)
+        palette.setColor(QPalette.ColorRole.Text, self._default_text_color)
         self.setPalette(palette)
 
     def append_data(self, text: str, prefix_timestamp: bool) -> list[str]:
@@ -54,9 +58,23 @@ class ConsoleWidget(QPlainTextEdit):
         return completed_lines
 
     def append_text(self, text: str) -> None:
+        self.append_text_colored(text, None)
+
+    def append_text_colored(self, text: str, color: str | None) -> None:
         if not text:
             return
-        self.appendPlainText(text)
+        if color is None:
+            self.appendPlainText(text)
+        else:
+            cursor = self.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor(color))
+            cursor.setCharFormat(fmt)
+            cursor.insertText(text)
+            cursor.insertBlock()
+            cursor.setCharFormat(QTextCharFormat())
+            self.setTextCursor(cursor)
         self._scroll_to_bottom()
 
     def _scroll_to_bottom(self) -> None:

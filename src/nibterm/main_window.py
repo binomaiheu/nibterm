@@ -120,28 +120,6 @@ class MainWindow(QMainWindow):
         self._action_quit.triggered.connect(self.close)
         self._action_connect.triggered.connect(self._connect_serial)
         self._action_disconnect.triggered.connect(self._disconnect_serial)
-        file_menu.addAction(self._action_connect)
-        file_menu.addAction(self._action_disconnect)
-        file_menu.addSeparator()
-        self._action_load_preset = QAction("Load preset...", self)
-        self._action_clear_preset = QAction("Clear preset", self)
-        self._action_load_preset.triggered.connect(
-            self._command_toolbar.load_preset_via_dialog
-        )
-        self._action_clear_preset.triggered.connect(
-            self._command_toolbar.clear_preset
-        )
-        file_menu.addAction(self._action_load_preset)
-        file_menu.addAction(self._action_clear_preset)
-        file_menu.addSeparator()
-        file_menu.addAction(self._action_quit)
-
-        self._connection_toolbar = self.addToolBar("Connection")
-        self._connection_toolbar.setObjectName("ConnectionToolbar")
-        self._connection_toolbar.setMovable(False)
-        self._connection_toolbar.addAction(self._action_connect)
-        self._connection_toolbar.addAction(self._action_disconnect)
-
         tools_menu = menu.addMenu("Tools")
         self._action_settings = QAction("Configure...", self)
         self._action_settings.triggered.connect(self._open_settings)
@@ -173,6 +151,28 @@ class MainWindow(QMainWindow):
         self._action_show_plot.setCheckable(True)
         self._action_show_plot.triggered.connect(self._toggle_plot_panel)
         self._plot_toolbar.addAction(self._action_show_plot)
+
+        file_menu.addAction(self._action_connect)
+        file_menu.addAction(self._action_disconnect)
+        file_menu.addSeparator()
+        self._action_load_preset = QAction("Load preset...", self)
+        self._action_clear_preset = QAction("Clear preset", self)
+        self._action_load_preset.triggered.connect(
+            self._command_toolbar.load_preset_via_dialog
+        )
+        self._action_clear_preset.triggered.connect(
+            self._command_toolbar.clear_preset
+        )
+        file_menu.addAction(self._action_load_preset)
+        file_menu.addAction(self._action_clear_preset)
+        file_menu.addSeparator()
+        file_menu.addAction(self._action_quit)
+
+        self._connection_toolbar = self.addToolBar("Connection")
+        self._connection_toolbar.setObjectName("ConnectionToolbar")
+        self._connection_toolbar.setMovable(False)
+        self._connection_toolbar.addAction(self._action_connect)
+        self._connection_toolbar.addAction(self._action_disconnect)
 
         self._action_disconnect.setEnabled(False)
 
@@ -245,7 +245,7 @@ class MainWindow(QMainWindow):
         payload = f"{raw}{self._serial_settings.line_ending}"
         self._port_manager.write(payload.encode("utf-8"))
         if self._serial_settings.local_echo:
-            self._console.append_text(f"> {raw}")
+            self._console.append_text_colored(f"> {raw}", "#d32f2f")
         self._input_line.clear()
 
     def _send_command(self, command: str) -> None:
@@ -253,7 +253,7 @@ class MainWindow(QMainWindow):
             return
         self._port_manager.write(command.encode("utf-8"))
         if self._serial_settings.local_echo:
-            self._console.append_text(f"> {command.rstrip()}")
+            self._console.append_text_colored(f"> {command.rstrip()}", "#d32f2f")
 
     def _start_logging(self) -> None:
         path, _ = QFileDialog.getSaveFileName(
