@@ -50,6 +50,7 @@ class MainWindow(QMainWindow):
         self._port_manager.data_received.connect(self._on_data_received)
         self._port_manager.connection_changed.connect(self._on_connection_changed)
         self._port_manager.error.connect(self._on_serial_error)
+        self._port_manager.reconnecting.connect(self._on_reconnecting)
 
         self._file_logger = FileLogger()
 
@@ -223,6 +224,16 @@ class MainWindow(QMainWindow):
     @Slot(str)
     def _on_serial_error(self, message: str) -> None:
         self._status_label.setText(f"Error: {message}")
+
+    @Slot(bool)
+    def _on_reconnecting(self, reconnecting: bool) -> None:
+        if reconnecting:
+            self._status_label.setText("Waiting for connection...")
+        else:
+            if self._port_manager.is_open():
+                self._status_label.setText("Connected")
+            else:
+                self._status_label.setText("Disconnected")
 
     @Slot(bytes)
     def _on_data_received(self, data: bytes) -> None:
