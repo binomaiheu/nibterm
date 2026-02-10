@@ -54,8 +54,18 @@ class CommandToolbar(QToolBar):
         self._tree.setRootIsDecorated(True)
         self._tree.setUniformRowHeights(True)
         self._tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
+        self._tree.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectItems)
+        self._tree.setAlternatingRowColors(False)
+        self._tree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._tree.setStyleSheet(
-            "QTreeWidget::item:selected { background: transparent; }"
+            "QTreeView::item:selected { background: transparent; color: palette(text); }"
+            "QTreeView::item:focus { outline: none; }"
+            "QTreeView::item:selected:active { background: transparent; }"
+            "QTreeView::item:selected:!active { background: transparent; }"
+            "QTreeView { selection-background-color: transparent; alternate-background-color: transparent; }"
+            "QTreeView::item:hover { background: transparent; }"
+            "QTreeView::item { background: transparent; }"
+            "QToolButton:focus { outline: none; background: transparent; }"
         )
         self.addWidget(self._tree)
 
@@ -134,6 +144,7 @@ class CommandToolbar(QToolBar):
         button.setDefaultAction(action)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         button.setMinimumHeight(26)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         if command.description:
             button.setToolTip(command.description)
         header_layout.addWidget(button)
