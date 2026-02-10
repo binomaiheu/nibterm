@@ -134,11 +134,37 @@ class PlotPanel(QWidget):
         self._timer.timeout.connect(self._refresh_plot)
         self._timer.start(self._config.update_ms)
 
+    def available_variables(self) -> list[tuple[str, str]]:
+        names = self._config.column_names
+        variables: list[tuple[str, str]] = []
+        max_index = max(names.keys(), default=-1)
+        max_index = max(max_index, 0)
+        for idx in range(max_index + 1):
+            key = f"c{idx}"
+            label = names.get(idx, key)
+            display = f"{label} ({key})" if label != key else label
+            variables.append((key, display))
+        for transform in self._config.transform_expressions:
+            variables.append((transform.name, f"{transform.name} (fx)"))
+        return variables
+
     def set_config(self, config: PlotConfig) -> None:
         self._config = config
         self._timer.setInterval(config.update_ms)
         self._time_axis.set_mode(config.mode)
         self._reset_plot()
+
+    def update_config(self, config: PlotConfig) -> None:
+        if self._config.mode != config.mode:
+            self._config = config
+            self._timer.setInterval(config.update_ms)
+            self._time_axis.set_mode(config.mode)
+            self._reset_plot()
+            return
+        self._config = config
+        self._timer.setInterval(config.update_ms)
+        self._time_axis.set_mode(config.mode)
+        self._update_axis_labels()
 
     def set_enabled(self, enabled: bool) -> None:
         self._enabled = enabled
@@ -227,7 +253,15 @@ class PlotPanel(QWidget):
     def _refresh_plot(self) -> None:
         if not self._enabled:
             return
+        if self._config.mode == "timeseries":
+            selected_labels = {
+                self._variable_label(key) for key in self._config.series_variables
+            }
+        else:
+            selected_labels = {self._variable_label(self._config.xy_y_var)}
         for name, points in self._series.items():
+            if name not in selected_labels:
+                continue
             color = self._curve_colors[len(self._curves) % len(self._curve_colors)]
             if name not in self._curves:
                 if self._config.mode == "xy":

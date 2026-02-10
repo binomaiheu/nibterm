@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStatusBar,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -26,7 +27,7 @@ from .ui.plot_panel import PlotConfig, PlotPanel
 from .ui.plot_settings_dialog import PlotSettingsDialog
 from .ui.settings_dialog import SettingsDialog
 from .ui.command_toolbar import CommandToolbar
-from .ui.plot_window import PlotWindow
+from .ui.dashboard_window import DashboardWindow
 from .version import __version__
 
 
@@ -83,17 +84,19 @@ class MainWindow(QMainWindow):
         terminal_widget = QWidget()
         terminal_widget.setLayout(terminal_layout)
 
-        self.setCentralWidget(terminal_widget)
+        self._plot_config = PlotConfig.from_qsettings(self._settings)
+        self._dashboard_window = DashboardWindow(self._settings, self._plot_config, self)
+
+        self._tabs = QTabWidget()
+        self._terminal_tab_index = self._tabs.addTab(terminal_widget, "Terminal")
+        self._dashboard_tab_index = self._tabs.addTab(self._dashboard_window, "Dashboard")
+        self.setCentralWidget(self._tabs)
 
         self._command_toolbar = CommandToolbar(self)
         self._command_toolbar.setObjectName("CommandsToolbar")
         self._command_toolbar.command_requested.connect(self._send_command)
         self._command_toolbar.preset_loaded.connect(self._store_last_preset_path)
         self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self._command_toolbar)
-
-        self._plot_config = PlotConfig.from_qsettings(self._settings)
-        self._plot_panel: PlotPanel | None = None
-        self._plot_window: PlotWindow | None = None
 
         self._status = QStatusBar()
         self.setStatusBar(self._status)
@@ -117,12 +120,11 @@ class MainWindow(QMainWindow):
         menu = self.menuBar()
 
         file_menu = menu.addMenu("File")
-        self._action_connect = QAction("Connect", self)
-        self._action_disconnect = QAction("Disconnect", self)
+        self._action_connect_toggle = QAction("Connect", self)
+        self._action_connect_toggle.setCheckable(True)
         self._action_quit = QAction("Quit", self)
         self._action_quit.triggered.connect(self.close)
-        self._action_connect.triggered.connect(self._connect_serial)
-        self._action_disconnect.triggered.connect(self._disconnect_serial)
+        self._action_connect_toggle.triggered.connect(self._toggle_connection)
         tools_menu = menu.addMenu("Tools")
         self._action_settings = QAction("Configure...", self)
         self._action_settings.triggered.connect(self._open_settings)
@@ -140,7 +142,7 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(self._action_log_stop)
 
         view_menu = menu.addMenu("View")
-        self._action_plot_settings = QAction("Plot settings...", self)
+        self._action_plot_settings = QAction("Data Pipeline...", self)
         self._action_plot_settings.triggered.connect(self._open_plot_settings)
         view_menu.addAction(self._action_plot_settings)
         self._action_clear_plot = QAction("Clear plot", self)
@@ -155,13 +157,8 @@ class MainWindow(QMainWindow):
         self._plot_toolbar = self.addToolBar("Plot")
         self._plot_toolbar.setObjectName("PlotToolbar")
         self._plot_toolbar.setMovable(False)
-        self._action_show_plot = QAction("Plot window", self)
-        self._action_show_plot.setCheckable(True)
-        self._action_show_plot.triggered.connect(self._toggle_plot_panel)
-        self._plot_toolbar.addAction(self._action_show_plot)
 
-        file_menu.addAction(self._action_connect)
-        file_menu.addAction(self._action_disconnect)
+        file_menu.addAction(self._action_connect_toggle)
         file_menu.addSeparator()
         self._action_load_preset = QAction("Load preset...", self)
         self._action_clear_preset = QAction("Clear preset", self)
@@ -179,10 +176,9 @@ class MainWindow(QMainWindow):
         self._connection_toolbar = self.addToolBar("Connection")
         self._connection_toolbar.setObjectName("ConnectionToolbar")
         self._connection_toolbar.setMovable(False)
-        self._connection_toolbar.addAction(self._action_connect)
-        self._connection_toolbar.addAction(self._action_disconnect)
+        self._connection_toolbar.addAction(self._action_connect_toggle)
 
-        self._action_disconnect.setEnabled(False)
+        self._action_connect_toggle.setChecked(False)
 
     @Slot()
     def _open_settings(self) -> None:
@@ -210,12 +206,20 @@ class MainWindow(QMainWindow):
     def _connect_serial(self) -> None:
         if not self._serial_settings.port_name:
             QMessageBox.warning(self, "Serial", "No serial port selected.")
+            self._action_connect_toggle.setChecked(False)
             return
         opened = self._port_manager.open(self._serial_settings)
         if not opened:
             QMessageBox.critical(
                 self, "Serial", "Failed to open serial port."
             )
+            self._action_connect_toggle.setChecked(False)
+
+    def _toggle_connection(self, checked: bool) -> None:
+        if checked:
+            self._connect_serial()
+        else:
+            self._disconnect_serial()
 
     @Slot()
     def _disconnect_serial(self) -> None:
@@ -223,8 +227,8 @@ class MainWindow(QMainWindow):
 
     @Slot(bool)
     def _on_connection_changed(self, connected: bool) -> None:
-        self._action_connect.setEnabled(not connected)
-        self._action_disconnect.setEnabled(connected)
+        self._action_connect_toggle.setChecked(connected)
+        self._action_connect_toggle.setText("Disconnect" if connected else "Connect")
         if connected:
             self._status_label.setText(self._connection_status_text())
         else:
@@ -282,8 +286,8 @@ class MainWindow(QMainWindow):
         text = data.decode("utf-8", errors="replace")
         lines = self._console.append_data(text, self._serial_settings.timestamp_prefix)
         for line in lines:
-            if self._plot_panel and self._action_show_plot.isChecked():
-                self._plot_panel.handle_line(line)
+            if self._dashboard_window:
+                self._dashboard_window.handle_line(line)
             if self._file_logger.is_active():
                 self._file_logger.log_line(line)
 
@@ -329,49 +333,18 @@ class MainWindow(QMainWindow):
         self._action_log_stop.setEnabled(False)
         self._status_label.setText("Logging stopped")
 
-    def _toggle_plot_panel(self, checked: bool) -> None:
-        if checked:
-            self._ensure_plot_window()
-            if self._plot_window:
-                self._plot_window.show()
-            if self._plot_panel:
-                self._plot_panel.set_enabled(True)
-        else:
-            if self._plot_panel:
-                self._plot_panel.set_enabled(False)
-            if self._plot_window:
-                self._plot_window.hide()
-        self._settings.setValue("view/plot_visible", checked)
-
     def _open_plot_settings(self) -> None:
         dialog = PlotSettingsDialog(self)
         dialog.load(self._plot_config)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._plot_config = dialog.config()
-            if self._plot_panel:
-                self._plot_panel.set_config(self._plot_config)
-                self._plot_panel.set_enabled(self._action_show_plot.isChecked())
+            if self._dashboard_window:
+                self._dashboard_window.apply_config(self._plot_config)
             self._save_settings()
 
     def _clear_plot(self) -> None:
-        if self._plot_panel:
-            self._plot_panel.clear()
-
-    def _ensure_plot_window(self) -> None:
-        if self._plot_panel is None:
-            self._plot_panel = PlotPanel()
-            self._plot_panel.set_config(self._plot_config)
-            self._plot_panel.set_enabled(self._action_show_plot.isChecked())
-        if self._plot_window is None:
-            self._plot_window = PlotWindow(self._plot_panel, self._settings, self)
-            self._plot_window.window_closed.connect(self._on_plot_window_closed)
-            self._plot_window.restore_state()
-
-    def _on_plot_window_closed(self) -> None:
-        self._action_show_plot.setChecked(False)
-        if self._plot_panel:
-            self._plot_panel.set_enabled(False)
-        self._settings.setValue("view/plot_visible", False)
+        if self._dashboard_window:
+            self._dashboard_window.clear_plots()
 
     def _save_settings(self) -> None:
         self._serial_settings.to_qsettings(self._settings)
@@ -379,12 +352,9 @@ class MainWindow(QMainWindow):
         self._plot_config.to_qsettings(self._settings)
         self._settings.setValue("window/geometry", self.saveGeometry())
         self._settings.setValue("window/state", self.saveState())
-        self._settings.setValue(
-            "view/plot_visible",
-            self._action_show_plot.isChecked(),
-        )
-        if self._plot_window:
-            self._plot_window.save_state()
+        self._settings.setValue("view/tab", self._tabs.currentIndex())
+        if self._dashboard_window:
+            self._dashboard_window.save_state()
 
     def _restore_window_state(self) -> None:
         geometry = self._settings.value("window/geometry")
@@ -393,15 +363,15 @@ class MainWindow(QMainWindow):
         state = self._settings.value("window/state")
         if state:
             self.restoreState(state)
-        visible = self._settings.value("view/plot_visible", False, bool)
-        self._action_show_plot.setChecked(visible)
-        if visible:
-            self._ensure_plot_window()
-            if self._plot_window:
-                self._plot_window.show()
-        else:
-            if self._plot_window:
-                self._plot_window.hide()
+        tab_index = self._settings.value("view/tab")
+        if tab_index is not None:
+            try:
+                self._tabs.setCurrentIndex(int(tab_index))
+            except (TypeError, ValueError):
+                pass
+        if self._dashboard_window:
+            self._dashboard_window.restore_state()
+
 
     def _store_last_preset_path(self, path: str) -> None:
         self._settings.setValue("commands/last_path", path)
