@@ -113,6 +113,7 @@ class PlotPanel(QWidget):
         self._curves: dict[str, pg.PlotDataItem] = {}
         self._sample_index = 0
         self._start_time: float | None = None
+        self._buffer_size = self._config.buffer_size
 
         self._time_axis = TimeAxis(orientation="bottom")
         self._plot = pg.PlotWidget(axisItems={"bottom": self._time_axis})
@@ -155,7 +156,7 @@ class PlotPanel(QWidget):
         self._reset_plot()
 
     def update_config(self, config: PlotConfig) -> None:
-        if self._config.buffer_size != config.buffer_size:
+        if self._buffer_size != config.buffer_size:
             self._resize_buffers(config.buffer_size)
             self._refresh_plot()
         if self._config.mode != config.mode:
@@ -185,6 +186,7 @@ class PlotPanel(QWidget):
     def _resize_buffers(self, new_size: int) -> None:
         if new_size <= 0:
             return
+        self._buffer_size = new_size
         resized: dict[str, deque[tuple[float, float]]] = {}
         for name, data in self._series.items():
             resized[name] = deque(data, maxlen=new_size)
