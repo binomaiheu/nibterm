@@ -7,10 +7,18 @@ import yaml
 
 
 @dataclass
+class CommandParam:
+    name: str
+    label: str | None = None
+    default: str | None = None
+
+
+@dataclass
 class Command:
     label: str
     command: str
     color: str | None = None
+    params: list[CommandParam] | None = None
 
 
 @dataclass
@@ -25,9 +33,9 @@ def load_preset(path: str | Path) -> CommandPreset:
     if not isinstance(raw, dict):
         raise ValueError("Preset file must be a YAML mapping.")
 
-    name = raw.get("name")
+    preset_name = raw.get("name")
     commands = raw.get("commands")
-    if not isinstance(name, str) or not name:
+    if not isinstance(preset_name, str) or not preset_name:
         raise ValueError("Preset must include a non-empty 'name'.")
     if not isinstance(commands, list):
         raise ValueError("Preset must include a 'commands' list.")
@@ -39,10 +47,28 @@ def load_preset(path: str | Path) -> CommandPreset:
         label = entry.get("label")
         command = entry.get("command")
         color = entry.get("color")
+        params_raw = entry.get("params", [])
         if not isinstance(label, str) or not isinstance(command, str):
             raise ValueError("Command entries must include 'label' and 'command' strings.")
         if color is not None and not isinstance(color, str):
             raise ValueError("'color' must be a string if provided.")
-        parsed.append(Command(label=label, command=command, color=color))
+        params: list[CommandParam] = []
+        if params_raw:
+            if not isinstance(params_raw, list):
+                raise ValueError("'params' must be a list.")
+            for param in params_raw:
+                if not isinstance(param, dict):
+                    raise ValueError("Each param must be a mapping.")
+                param_name = param.get("name")
+                if not isinstance(param_name, str) or not param_name:
+                    raise ValueError("Param must include a non-empty 'name'.")
+                label_text = param.get("label")
+                if label_text is not None and not isinstance(label_text, str):
+                    raise ValueError("'label' must be a string if provided.")
+                default = param.get("default")
+                if default is not None and not isinstance(default, str):
+                    default = str(default)
+                params.append(CommandParam(name=param_name, label=label_text, default=default))
+        parsed.append(Command(label=label, command=command, color=color, params=params))
 
-    return CommandPreset(name=name, commands=parsed)
+    return CommandPreset(name=preset_name, commands=parsed)

@@ -57,4 +57,13 @@ commands:
   - label: Status
     command: "status\n"
     color: "#e3f2fd"
+  - label: Set PWM
+    command: "pwm {duty} {freq}\n"
+    params:
+      - name: duty
+        label: Duty (%)
+        default: "50"
+      - name: freq
+        label: Frequency (Hz)
+        default: "1000"
 ```

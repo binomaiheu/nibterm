@@ -15,9 +15,11 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStatusBar,
+    QSplitter,
     QTabWidget,
     QVBoxLayout,
     QWidget,
+    QSizePolicy,
 )
 
 from .logging.file_logger import FileLogger
@@ -38,7 +40,7 @@ class MainWindow(QMainWindow):
         QCoreApplication.setOrganizationName("nibsoft")
         QCoreApplication.setApplicationName("nibterm")
 
-        self.setWindowTitle("nibterm - a vibe coded serial terminal application")
+        self.setWindowTitle("nibterm - a vibe coded serial IoT device terminal")
 
         self._settings = QSettings()
         self._serial_settings = SerialSettings.from_qsettings(self._settings)
@@ -92,13 +94,21 @@ class MainWindow(QMainWindow):
         self._tabs = QTabWidget()
         self._terminal_tab_index = self._tabs.addTab(terminal_widget, "Terminal")
         self._dashboard_tab_index = self._tabs.addTab(self._dashboard_window, "Dashboard")
-        self.setCentralWidget(self._tabs)
+        self._tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self._command_toolbar = CommandToolbar(self)
         self._command_toolbar.setObjectName("CommandsToolbar")
         self._command_toolbar.command_requested.connect(self._send_command)
         self._command_toolbar.preset_loaded.connect(self._store_last_preset_path)
-        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self._command_toolbar)
+        self._command_toolbar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+
+        self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._main_splitter.addWidget(self._tabs)
+        self._main_splitter.addWidget(self._command_toolbar)
+        self._main_splitter.setStretchFactor(0, 3)
+        self._main_splitter.setStretchFactor(1, 1)
+        self._main_splitter.setChildrenCollapsible(False)
+        self.setCentralWidget(self._main_splitter)
 
         self._status = QStatusBar()
         self.setStatusBar(self._status)
@@ -450,6 +460,7 @@ class MainWindow(QMainWindow):
         self._settings.setValue("window/geometry", self.saveGeometry())
         self._settings.setValue("window/state", self.saveState())
         self._settings.setValue("view/tab", self._tabs.currentIndex())
+        self._settings.setValue("view/splitter", self._main_splitter.saveState())
         if self._dashboard_window:
             self._dashboard_window.save_state()
 
@@ -466,6 +477,9 @@ class MainWindow(QMainWindow):
                 self._tabs.setCurrentIndex(int(tab_index))
             except (TypeError, ValueError):
                 pass
+        splitter_state = self._settings.value("view/splitter")
+        if splitter_state:
+            self._main_splitter.restoreState(splitter_state)
         if self._dashboard_window:
             self._dashboard_window.restore_state()
 
