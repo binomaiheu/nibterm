@@ -142,6 +142,9 @@ class DashboardWindow(QWidget):
     def handle_line(self, line: str) -> None:
         for plot in self._plot_panels:
             plot.handle_line(line)
+            config = self._plot_configs.get(plot)
+            if config:
+                self._update_plot_title(plot, config)
 
     def clear_plots(self) -> None:
         for plot in self._plot_panels:
@@ -237,15 +240,22 @@ class DashboardWindow(QWidget):
         self._plot_windows.pop(plot, None)
         self._inactive_plots.discard(plot)
 
-    def _plot_title(self, config: PlotConfig) -> str:
+    def _plot_title(self, plot: PlotPanel, config: PlotConfig) -> str:
+        count = plot.current_point_count()
         if config.mode == "xy":
             x_label = self._variable_label(config.xy_x_var, config)
             y_label = self._variable_label(config.xy_y_var, config)
-            return f"XY: {x_label} vs {y_label} (buffer: {config.buffer_size})"
+            return (
+                f"XY: {x_label} vs {y_label} "
+                f"(buffer: {count}/{config.buffer_size})"
+            )
         labels = [self._variable_label(key, config) for key in config.series_variables]
         if not labels:
-            return f"Timeseries (buffer: {config.buffer_size})"
-        return f"Timeseries: {', '.join(labels)} (buffer: {config.buffer_size})"
+            return f"Timeseries (buffer: {count}/{config.buffer_size})"
+        return (
+            f"Timeseries: {', '.join(labels)} "
+            f"(buffer: {count}/{config.buffer_size})"
+        )
 
     def _variable_label(self, key: str, config: PlotConfig) -> str:
         if key.startswith("c") and key[1:].isdigit():
@@ -259,4 +269,4 @@ class DashboardWindow(QWidget):
             if plot in self._inactive_plots:
                 window.setWindowTitle("Plot (inactive)")
             else:
-                window.setWindowTitle(self._plot_title(config))
+                window.setWindowTitle(self._plot_title(plot, config))

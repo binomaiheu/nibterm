@@ -320,6 +320,11 @@ class PlotPanel(QWidget):
             self._plot.setLabel("bottom", "timestamp")
             self._plot.setLabel("left", "Value")
 
+    def current_point_count(self) -> int:
+        if not self._series:
+            return 0
+        return max(len(points) for points in self._series.values())
+
     def _variable_label(self, key: str) -> str:
         if key.startswith("c") and key[1:].isdigit():
             index = int(key[1:])
