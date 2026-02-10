@@ -21,22 +21,36 @@ So this is my vibe-coded attempt to create something which ticks all those boxes
 - Real-time plotting via pyqtgraph (CSV-like lines)
 - YAML command presets with configurable parameters that render as buttons in the UI
 
-## Requirements
+## Getting started
+
+I haven't wrapped this in an installer yet, so you'll have to run it from source for now. Fortunately, this is easy. The tool uses python & the `uv` package manager. So you'll need to install these first. 
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
 
-## Setup
+follow the instructions on the site to install `uv` and make sure it's in your `$PATH` (or equivalent on the OS you are working on). 
+
+Next, clone the repository, move to the folder & create the python environment. 
 
 ```bash
+git clone https://github.com/binomaiheu/nibterm.git
+cd nibterm
 uv sync
 ```
 
-## Run
+This should build the environment, probably in `.venv`, with the required python dependencies like PySide6 etc... To run the tool, simply execute : 
 
 ```bash
 uv run nibterm
 ```
+
+from the same folder. Or if you have activated the python environment instead, you can just run the tool as is. 
+
+```bash
+source .venv/bin/activate
+nibterm
+```
+
 
 ## Usage
 
@@ -46,7 +60,11 @@ uv run nibterm
 - Switch to the **Dashboard** tab to add plots and use **Setup** per plot.
 - Start logging from **Tools → Start logging...**.
 
-## Command preset example (YAML)
+### Presets
+
+Below is a yaml configuration example for a preset which can be loaded into the tool. The idea behind presets is that you load a set of commands with optional parameters which will show up as a list of buttons for easy interaction with the firmware via the serial port. 
+
+In the yaml file, you can define what's behind the buttons. Load the presets via `File > Load preset...`.
 
 ```yaml
 # Preset for vmm-iot-owlogger
@@ -76,3 +94,4 @@ commands:
         default: "1000"
         description: PWM frequency in Hertz.
 ```
+
