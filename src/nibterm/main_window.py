@@ -7,6 +7,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
     QDialog,
+    QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -101,7 +102,10 @@ class MainWindow(QMainWindow):
         self._status = QStatusBar()
         self.setStatusBar(self._status)
         self._status_label = QLabel("Disconnected")
+        self._status_log_label = QLabel("")
         self._status.addWidget(self._status_label)
+        self._status.addWidget(QLabel(" | "))
+        self._status.addWidget(self._status_log_label)
         self._reconnecting = False
 
         self._create_actions()
@@ -313,25 +317,45 @@ class MainWindow(QMainWindow):
             self._console.append_text_colored(f"> {command.rstrip()}", "#d32f2f")
 
     def _start_logging(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
+        dialog = QFileDialog(
             self,
             "Log file",
             self._settings.value("logging/last_path", "", str),
             "Text files (*.txt);;All files (*)",
         )
-        if not path:
+        dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dialog.setOption(QFileDialog.Option.DontConfirmOverwrite, True)
+        dialog.setLabelText(QFileDialog.DialogLabel.Accept, "Append")
+        button_box = dialog.findChild(QDialogButtonBox)
+        mode_holder = {"mode": "a"}
+        replace_button = None
+        if button_box:
+            append_button = button_box.button(QDialogButtonBox.StandardButton.Save)
+            if append_button:
+                append_button.clicked.connect(lambda: mode_holder.update(mode="a"))
+            replace_button = button_box.addButton(
+                "Replace",
+                QDialogButtonBox.ButtonRole.AcceptRole,
+            )
+            replace_button.clicked.connect(lambda: mode_holder.update(mode="w"))
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        self._file_logger.start(Path(path))
+        files = dialog.selectedFiles()
+        if not files:
+            return
+        path = files[0]
+        self._file_logger.start(Path(path), mode=mode_holder["mode"])
         self._settings.setValue("logging/last_path", path)
         self._action_log_start.setEnabled(False)
         self._action_log_stop.setEnabled(True)
-        self._status_label.setText(f"Logging to {path}")
+        self._status_log_label.setText(f"Logging to {path}")
 
     def _stop_logging(self) -> None:
         self._file_logger.stop()
         self._action_log_start.setEnabled(True)
         self._action_log_stop.setEnabled(False)
-        self._status_label.setText("Logging stopped")
+        self._status_log_label.setText("Logging stopped")
 
     def _open_plot_settings(self) -> None:
         dialog = PlotSettingsDialog(self)

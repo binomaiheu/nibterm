@@ -155,6 +155,9 @@ class PlotPanel(QWidget):
         self._reset_plot()
 
     def update_config(self, config: PlotConfig) -> None:
+        if self._config.buffer_size != config.buffer_size:
+            self._resize_buffers(config.buffer_size)
+            self._refresh_plot()
         if self._config.mode != config.mode:
             self._config = config
             self._timer.setInterval(config.update_ms)
@@ -178,6 +181,14 @@ class PlotPanel(QWidget):
         self._start_time = None
         self._time_axis.set_start_time(None)
         self._update_axis_labels()
+
+    def _resize_buffers(self, new_size: int) -> None:
+        if new_size <= 0:
+            return
+        resized: dict[str, deque[tuple[float, float]]] = {}
+        for name, data in self._series.items():
+            resized[name] = deque(data, maxlen=new_size)
+        self._series = resized
 
     def handle_line(self, line: str) -> None:
         if not self._enabled:

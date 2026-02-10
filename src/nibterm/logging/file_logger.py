@@ -8,10 +8,10 @@ class FileLogger:
         self._file = None
         self._path: Path | None = None
 
-    def start(self, path: str | Path) -> None:
+    def start(self, path: str | Path, mode: str = "a") -> None:
         self.stop()
         self._path = Path(path)
-        self._file = self._path.open("a", encoding="utf-8")
+        self._file = self._path.open(mode, encoding="utf-8")
 
     def stop(self) -> None:
         if self._file:
