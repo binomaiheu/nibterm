@@ -36,6 +36,7 @@ class PlotSettingsDialog(QDialog):
         self._names_table.verticalHeader().setVisible(False)
         self._names_table.setEditTriggers(QTableWidget.EditTrigger.AllEditTriggers)
         self._transform = QLineEdit()
+        self._transform.setPlaceholderText("e.g. Vbatt=c6; Power=Vbatt*c2")
         self._buffer_size = QSpinBox()
         self._buffer_size.setRange(10, 100_000)
         self._update_ms = QSpinBox()
@@ -44,16 +45,20 @@ class PlotSettingsDialog(QDialog):
         form = QFormLayout()
         form.addRow("Mode", self._mode)
         form.addRow("Delimiter", self._delimiter)
-        form.addRow("Columns (e.g. 0,1,2)", self._columns)
-        form.addRow("X column (X/Y mode)", self._x_column)
-        form.addRow("Y column (X/Y mode)", self._y_column)
+        self._columns_label = QLabel("Columns (e.g. 0,1,2)")
+        form.addRow(self._columns_label, self._columns)
+        self._x_column_label = QLabel("X column (X/Y mode)")
+        self._y_column_label = QLabel("Y column (X/Y mode)")
+        form.addRow(self._x_column_label, self._x_column)
+        form.addRow(self._y_column_label, self._y_column)
         form.addRow("Name rows", self._name_count)
         form.addRow(self._names_table)
         form.addRow("Transform expressions", self._transform)
-        form.addRow(
-            "",
-            QLabel("Format: name=expr; name2=expr2 (use c0, c1 or column names)"),
+        self._transform_help = QLabel(
+            "Examples: Vbatt=c6; Power=Vbatt*c2; Temp=(c1-32)*5/9"
         )
+        self._transform_help.setWordWrap(True)
+        form.addRow("", self._transform_help)
         form.addRow("Buffer size", self._buffer_size)
         form.addRow("Update interval (ms)", self._update_ms)
 
@@ -106,9 +111,12 @@ class PlotSettingsDialog(QDialog):
 
     def _update_mode_fields(self) -> None:
         is_timeseries = self._mode.currentData() == "timeseries"
-        self._columns.setEnabled(is_timeseries)
-        self._x_column.setEnabled(not is_timeseries)
-        self._y_column.setEnabled(not is_timeseries)
+        self._columns.setVisible(is_timeseries)
+        self._columns_label.setVisible(is_timeseries)
+        self._x_column.setVisible(not is_timeseries)
+        self._y_column.setVisible(not is_timeseries)
+        self._x_column_label.setVisible(not is_timeseries)
+        self._y_column_label.setVisible(not is_timeseries)
 
     def _rebuild_name_rows(self) -> None:
         count = self._name_count.value()

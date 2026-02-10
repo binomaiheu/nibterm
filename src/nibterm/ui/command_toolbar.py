@@ -21,15 +21,6 @@ class CommandToolbar(QToolBar):
         self._preset: CommandPreset | None = None
         self._command_actions: list[QAction] = []
 
-        self._load_action = QAction("Load preset...", self)
-        self._clear_action = QAction("Clear", self)
-        self._load_action.triggered.connect(self._load_preset)
-        self._clear_action.triggered.connect(self.clear_preset)
-
-        self.addAction(self._load_action)
-        self.addAction(self._clear_action)
-        self.addSeparator()
-
     def set_preset(self, preset: CommandPreset) -> None:
         self._preset = preset
         self._rebuild_actions()
@@ -47,7 +38,7 @@ class CommandToolbar(QToolBar):
         self.set_preset(preset)
         self.preset_loaded.emit(str(path))
 
-    def _load_preset(self) -> None:
+    def load_preset_via_dialog(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Load command preset",
