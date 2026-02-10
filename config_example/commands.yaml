@@ -1,5 +1,5 @@
 # Example command preset
-name: vmm-iot-owlogger
+name: iot-device
 commands:
   - label: ping
     command: "ping\n"

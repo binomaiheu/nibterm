@@ -1,0 +1,42 @@
+# Command set for the vmm-iot-gwlogger devices
+# Bino Maiheu, (c) VMM 2023 - 2026
+name: vmm-iot-owlogger
+commands:
+  - label: help
+    command: "help\n"
+    description: Show help for the commands
+  - label: show
+    command: "show\n"
+    description: Show information about the device.
+  - label: ch
+    command: "ch {num} {enable}\n"
+    description: Enable/disable channel.
+    params:
+      - name: num
+        label: Channel number
+        default: "1"
+        description: Channel number (1-4).
+      - name: enable
+        label: Enable (0/1)
+        default: "1"
+        description: 1 to enable, 0 to disable.
+  - label: chcnf
+    command: "chcnf {num} {cnf}\n"
+    description: Configure channel.
+    params:
+      - name: num
+        label: Channel number
+        default: "1"
+        description: Channel number (1-4).
+      - name: cnf
+        label: Configuration
+        default: "1.0;0.0;0.0;0.0"
+        description: Configuration string (see. documentation).
+  - label: set loc
+    command: "set loc {name}\n"
+    description: Set location of the device.
+    params:
+      - name: name
+        label: Name
+        default: "unknown"
+        description: Name of the location.
