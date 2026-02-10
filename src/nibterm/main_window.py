@@ -101,12 +101,15 @@ class MainWindow(QMainWindow):
 
         self._status = QStatusBar()
         self.setStatusBar(self._status)
+        self._status_icon = QLabel()
         self._status_label = QLabel("Disconnected")
         self._status_log_label = QLabel("")
+        self._status.addWidget(self._status_icon)
         self._status.addWidget(self._status_label)
         self._status.addWidget(QLabel(" | "))
         self._status.addWidget(self._status_log_label)
         self._reconnecting = False
+        self._set_status_state("disconnected")
 
         self._create_actions()
         self._restore_window_state()
@@ -235,8 +238,10 @@ class MainWindow(QMainWindow):
         self._action_connect_toggle.setText("Disconnect" if connected else "Connect")
         if connected:
             self._status_label.setText(self._connection_status_text())
+            self._set_status_state("connected")
         else:
             self._status_label.setText("Disconnected")
+            self._set_status_state("disconnected")
         if connected and self._reconnecting:
             self._console.append_status_message(
                 "Device reconnected.",
@@ -254,6 +259,7 @@ class MainWindow(QMainWindow):
         if reconnecting:
             port = self._serial_settings.port_name or "device"
             self._status_label.setText(f"Waiting for {port}")
+            self._set_status_state("waiting")
             if not self._reconnecting:
                 self._console.append_status_message(
                     "Waiting for device connection...",
@@ -264,8 +270,22 @@ class MainWindow(QMainWindow):
         else:
             if self._port_manager.is_open():
                 self._status_label.setText(self._connection_status_text())
+                self._set_status_state("connected")
             else:
                 self._status_label.setText("Disconnected")
+                self._set_status_state("disconnected")
+
+    def _set_status_state(self, state: str) -> None:
+        colors = {
+            "connected": "#2e7d32",
+            "waiting": "#f9a825",
+            "disconnected": "#c62828",
+        }
+        color = colors.get(state, "#9e9e9e")
+        self._status_icon.setStyleSheet(
+            f"background-color: {color}; border-radius: 6px;"
+        )
+        self._status_icon.setFixedSize(12, 12)
 
     def _show_about(self) -> None:
         version_text = __version__
