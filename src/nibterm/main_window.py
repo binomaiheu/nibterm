@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
         self._action_connect_toggle.triggered.connect(self._toggle_connection)
         tools_menu = menu.addMenu("Tools")
         self._action_settings = QAction("Configure...", self)
+        self._action_settings.setMenuRole(QAction.MenuRole.NoRole)
         self._action_settings.triggered.connect(self._open_settings)
         self._action_clear = QAction("Clear terminal", self)
         self._action_clear.triggered.connect(self._console.clear)
