@@ -51,6 +51,14 @@ source .venv/bin/activate
 nibterm
 ```
 
+it is also possible to compile the tool to a standalone executable. this is done via : 
+
+
+```
+pyinstaller --windowed --name nibterm --onefile run.py
+```
+
+the exe will be in `dist`
 
 ## Usage
 
