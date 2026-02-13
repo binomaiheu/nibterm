@@ -26,3 +26,11 @@ class FileLogger:
             return
         self._file.write(f"{line}\n")
         self._file.flush()
+
+    def path(self) -> Path | None:
+        return self._path
+
+    def size_bytes(self) -> int:
+        if not self._path or not self._path.exists():
+            return 0
+        return self._path.stat().st_size

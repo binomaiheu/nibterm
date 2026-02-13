@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication, QSettings, Qt, Slot
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QDialog,
     QDialogButtonBox,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QStatusBar,
     QSplitter,
+    QStyle,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -32,6 +34,27 @@ from .ui.settings_dialog import SettingsDialog
 from .ui.command_toolbar import CommandToolbar
 from .ui.dashboard_window import DashboardWindow
 from .version import __version__
+
+# Resolve static dir: repo root when running from source, or package static if present
+_STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
+if not (_STATIC_DIR / "connected.svg").exists():
+    _STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+def _connect_icon() -> QIcon:
+    path = _STATIC_DIR / "connected.svg"
+    if path.exists():
+        return QIcon(str(path))
+    return QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ArrowForward)
+
+
+def _disconnect_icon() -> QIcon:
+    path = _STATIC_DIR / "disconnected.svg"
+    if path.exists():
+        return QIcon(str(path))
+    return QApplication.style().standardIcon(
+        QStyle.StandardPixmap.SP_TitleBarCloseButton
+    )
 
 
 class MainWindow(QMainWindow):
@@ -121,6 +144,7 @@ class MainWindow(QMainWindow):
         self._status.addWidget(self._status_log_label)
         self._reconnecting = False
         self._set_status_state("disconnected")
+        self._log_path: Path | None = None
 
         self._create_actions()
         self._restore_window_state()
@@ -138,7 +162,8 @@ class MainWindow(QMainWindow):
         menu = self.menuBar()
 
         file_menu = menu.addMenu("File")
-        self._action_connect_toggle = QAction("Connect", self)
+        self._action_connect_toggle = QAction("Disconnected", self)
+        self._action_connect_toggle.setIcon(_disconnect_icon())
         self._action_connect_toggle.setCheckable(True)
         self._action_quit = QAction("Quit", self)
         self._action_quit.triggered.connect(self.close)
@@ -190,10 +215,6 @@ class MainWindow(QMainWindow):
         self._action_about.triggered.connect(self._show_about)
         help_menu.addAction(self._action_about)
 
-        self._plot_toolbar = self.addToolBar("Plot")
-        self._plot_toolbar.setObjectName("PlotToolbar")
-        self._plot_toolbar.setMovable(False)
-
         file_menu.addSeparator()
         self._action_load_preset = QAction("Load preset...", self)
         self._action_clear_preset = QAction("Clear preset", self)
@@ -212,6 +233,10 @@ class MainWindow(QMainWindow):
         self._connection_toolbar.setObjectName("ConnectionToolbar")
         self._connection_toolbar.setMovable(False)
         self._connection_toolbar.addAction(self._action_connect_toggle)
+        connect_btn = self._connection_toolbar.widgetForAction(self._action_connect_toggle)
+        if connect_btn:
+            connect_btn.setMinimumHeight(40)
+            connect_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
 
         self._action_connect_toggle.setChecked(False)
 
@@ -273,7 +298,10 @@ class MainWindow(QMainWindow):
     @Slot(bool)
     def _on_connection_changed(self, connected: bool) -> None:
         self._action_connect_toggle.setChecked(connected)
-        self._action_connect_toggle.setText("Disconnect" if connected else "Connect")
+        self._action_connect_toggle.setText("Connected" if connected else "Disconnected")
+        self._action_connect_toggle.setIcon(
+            _connect_icon() if connected else _disconnect_icon()
+        )
         if connected:
             self._status_label.setText(self._connection_status_text())
             self._set_status_state("connected")
@@ -352,6 +380,7 @@ class MainWindow(QMainWindow):
                 self._dashboard_window.handle_line(line)
             if self._file_logger.is_active():
                 self._file_logger.log_line(line)
+                self._update_log_status()
 
     def _send_input_if_enabled(self) -> None:
         if self._serial_settings.send_on_enter:
@@ -404,16 +433,34 @@ class MainWindow(QMainWindow):
             return
         path = files[0]
         self._file_logger.start(Path(path), mode=mode_holder["mode"])
+        self._log_path = Path(path)
         self._settings.setValue("logging/last_path", path)
         self._action_log_start.setEnabled(False)
         self._action_log_stop.setEnabled(True)
-        self._status_log_label.setText(f"Logging to {path}")
+        self._update_log_status()
 
     def _stop_logging(self) -> None:
         self._file_logger.stop()
         self._action_log_start.setEnabled(True)
         self._action_log_stop.setEnabled(False)
         self._status_log_label.setText("Logging stopped")
+        self._log_path = None
+
+    def _update_log_status(self) -> None:
+        if not self._file_logger.is_active() or not self._log_path:
+            return
+        size = self._file_logger.size_bytes()
+        self._status_log_label.setText(
+            f"Logging to {self._log_path} ({self._format_bytes(size)})"
+        )
+
+    @staticmethod
+    def _format_bytes(size: int) -> str:
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if size < 1024:
+                return f"{size:.0f} {unit}"
+            size /= 1024
+        return f"{size:.0f} PB"
 
     def _open_plot_settings(self) -> None:
         dialog = PlotSettingsDialog(self)

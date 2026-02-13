@@ -24,6 +24,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.hooks.custom]
 path = "build_hooks/version_hook.py"
 
+[tool.hatch.build.targets.wheel.force-include]
+"static" = "nibterm/static"
+
+[tool.hatch.build.targets.sdist.force-include]
+"static" = "nibterm/static"
+
 [dependency-groups]
 dev = [
     "pyinstaller>=6.18.0",
