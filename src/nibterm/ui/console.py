@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 from PySide6.QtCore import QDateTime, Qt
 from PySide6.QtGui import QColor, QFont, QPalette, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit
@@ -13,7 +11,13 @@ class ConsoleWidget(QPlainTextEdit):
         self.setReadOnly(True)
         self.document().setMaximumBlockCount(5000)
         self._line_buffer = ""
+        self._display_at_line_start = True  # for timestamp at start of each line
         self._default_text_color = QColor("black")
+
+    def clear(self) -> None:
+        super().clear()
+        self._line_buffer = ""
+        self._display_at_line_start = True
 
     def set_appearance(
         self,
@@ -44,21 +48,33 @@ class ConsoleWidget(QPlainTextEdit):
         else:
             self._line_buffer = ""
 
-        for line in lines:
-            stripped = line.rstrip("\r\n")
-            completed_lines.append(stripped)
-            if prefix_timestamp:
+        # Display incoming text immediately (no buffering) so characters show up
+        # as they arrive; only completed lines are returned for logging/plotting.
+        # Normalize \r\n and \r to \n so one newline from device doesn't become two.
+        display_text = text.replace("\r\n", "\n").replace("\r", "\n")
+        segments = display_text.split("\n")
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        for i, segment in enumerate(segments):
+            # Only add timestamp when we have content to show (avoids duplicate timestamps
+            # when data arrives in chunks like "\n" then "line\n", and avoids timestamp on bare \r).
+            if prefix_timestamp and self._display_at_line_start and segment != "":
                 ts = QDateTime.currentDateTime().toString(Qt.ISODateWithMs)
-                cursor = self.textCursor()
-                cursor.movePosition(QTextCursor.MoveOperation.End)
                 self._insert_timestamp(cursor, ts)
-                cursor.insertText(stripped)
+                self._display_at_line_start = False
+            if segment:
+                cursor.insertText(segment)
+            if i < len(segments) - 1:
                 cursor.insertBlock()
-                self.setTextCursor(cursor)
-            else:
-                self.appendPlainText(stripped)
+                self._display_at_line_start = True
+            elif segment == "":
+                self._display_at_line_start = True
+        self.setTextCursor(cursor)
 
-        if completed_lines:
+        for line in lines:
+            completed_lines.append(line.rstrip("\r\n"))
+
+        if text or completed_lines:
             self._scroll_to_bottom()
         return completed_lines
 
