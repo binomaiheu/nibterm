@@ -20,6 +20,23 @@ class TransformExpression:
     expr: str
 
 
+def _parse_int_set(text: str) -> set[int]:
+    result: set[int] = set()
+    for part in text.split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            result.add(int(part))
+        except ValueError:
+            continue
+    return result
+
+
+def _serialize_int_set(s: set[int]) -> str:
+    return ";".join(str(i) for i in sorted(s))
+
+
 @dataclass
 class PlotConfig:
     delimiter: str = defaults.DEFAULT_PLOT_DELIMITER
@@ -28,6 +45,7 @@ class PlotConfig:
     x_column: int = 0
     y_column: int = 1
     column_names: dict[int, str] = field(default_factory=dict)
+    mqtt_column_indices: set[int] = field(default_factory=set)
     transform_expressions: list[TransformExpression] = field(default_factory=list)
     series_variables: list[str] = field(default_factory=list)
     xy_x_var: str = "c0"
@@ -46,6 +64,10 @@ class PlotConfig:
             _serialize_column_names(self.column_names),
         )
         settings.setValue(
+            "plot/mqtt_column_indices",
+            _serialize_int_set(self.mqtt_column_indices),
+        )
+        settings.setValue(
             "plot/transform",
             _serialize_transform(self.transform_expressions),
         )
@@ -62,6 +84,9 @@ class PlotConfig:
     def from_qsettings(settings: QSettings) -> "PlotConfig":
         columns = _parse_int_list(settings.value("plot/columns", "0", str), [0])
         names = _parse_column_names(settings.value("plot/column_names", "", str))
+        mqtt_indices = _parse_int_set(
+            settings.value("plot/mqtt_column_indices", "", str)
+        )
         transforms = _parse_transform_string(
             settings.value("plot/transform", "", str)
         )
@@ -87,6 +112,7 @@ class PlotConfig:
             x_column=settings.value("plot/x_column", 0, int),
             y_column=settings.value("plot/y_column", 1, int),
             column_names=names,
+            mqtt_column_indices=mqtt_indices,
             transform_expressions=transforms,
             series_variables=series_vars,
             xy_x_var=xy_x_var,
@@ -159,15 +185,23 @@ class PlotPanel(QWidget):
         if self._buffer_size != config.buffer_size:
             self._resize_buffers(config.buffer_size)
             self._refresh_plot()
+        if self._config.delimiter != config.delimiter or self._config.transform_expressions != config.transform_expressions:
+            self._config = config
+            self._timer.setInterval(config.update_ms)
+            self._time_axis.set_mode(config.mode)
+            self._reset_plot()
+            return
         if self._config.mode != config.mode:
             self._config = config
             self._timer.setInterval(config.update_ms)
             self._time_axis.set_mode(config.mode)
             self._reset_plot()
             return
+        self._migrate_series_labels(self._config, config)
         self._config = config
         self._timer.setInterval(config.update_ms)
         self._time_axis.set_mode(config.mode)
+        self._prune_removed_series()
         self._update_axis_labels()
 
     def set_enabled(self, enabled: bool) -> None:
@@ -192,7 +226,7 @@ class PlotPanel(QWidget):
             resized[name] = deque(data, maxlen=new_size)
         self._series = resized
 
-    def handle_line(self, line: str) -> None:
+    def handle_line(self, line: str, updated_names: set[str] | None = None) -> None:
         if not self._enabled:
             return
         tokens = [t.strip() for t in line.split(self._config.delimiter)]
@@ -217,18 +251,21 @@ class PlotPanel(QWidget):
             display_names[name] = name
 
         if self._config.mode == "xy":
-            self._handle_xy(variables, display_names)
+            self._handle_xy(variables, display_names, updated_names)
         else:
-            self._handle_timeseries(variables, display_names)
+            self._handle_timeseries(variables, display_names, updated_names)
 
     def _handle_timeseries(
         self,
         variables: dict[str, float],
         display_names: dict[str, str],
+        updated_names: set[str] | None = None,
     ) -> None:
         series_points: list[tuple[str, float]] = []
         for var in self._config.series_variables:
             if var not in variables:
+                continue
+            if updated_names is not None and var not in updated_names:
                 continue
             label = display_names.get(var, var)
             series_points.append((label, float(variables[var])))
@@ -247,10 +284,13 @@ class PlotPanel(QWidget):
         self,
         variables: dict[str, float],
         display_names: dict[str, str],
+        updated_names: set[str] | None = None,
     ) -> None:
         x_key = self._config.xy_x_var
         y_key = self._config.xy_y_var
         if x_key not in variables or y_key not in variables:
+            return
+        if updated_names is not None and x_key not in updated_names and y_key not in updated_names:
             return
         x_value = float(variables[x_key])
         series_points = [(display_names.get(y_key, y_key), float(variables[y_key]))]
@@ -309,6 +349,37 @@ class PlotPanel(QWidget):
     def _reset_plot(self) -> None:
         self.clear()
         self._update_axis_labels()
+
+    def _migrate_series_labels(self, old_config: PlotConfig, new_config: PlotConfig) -> None:
+        """When column names change (e.g. MQTT variable renamed), rekey series/curves so data and plot keep the new name."""
+        all_indices = set(old_config.column_names.keys()) | set(new_config.column_names.keys())
+        for idx in all_indices:
+            old_label = old_config.column_names.get(idx, f"c{idx}")
+            new_label = new_config.column_names.get(idx, f"c{idx}")
+            if old_label == new_label or old_label not in self._series:
+                continue
+            self._series[new_label] = self._series.pop(old_label)
+            if old_label in self._curves:
+                curve = self._curves.pop(old_label)
+                if hasattr(curve, "opts") and isinstance(getattr(curve, "opts", None), dict):
+                    curve.opts["name"] = new_label
+                self._curves[new_label] = curve
+
+    def _prune_removed_series(self) -> None:
+        """Remove series and curves that are no longer in the current config selection."""
+        if self._config.mode == "timeseries":
+            selected_labels = {
+                self._variable_label(key) for key in self._config.series_variables
+            }
+        else:
+            selected_labels = {self._variable_label(self._config.xy_y_var)}
+        for name in list(self._series.keys()):
+            if name not in selected_labels:
+                del self._series[name]
+                if name in self._curves:
+                    self._plot.removeItem(self._curves[name])
+                    del self._curves[name]
+        self._refresh_plot()
 
     def _update_axis_labels(self) -> None:
         if self._config.mode == "xy":

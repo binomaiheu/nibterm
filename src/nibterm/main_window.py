@@ -116,6 +116,8 @@ class MainWindow(QMainWindow):
 
         self._plot_config = PlotConfig.from_qsettings(self._settings)
         self._dashboard_window = DashboardWindow(self._settings, self._plot_config, self)
+        self._last_serial_values: dict[str, float] = {}
+        self._last_mqtt_values: dict[str, float] = {}
 
         self._mqtt_settings = MQTTSettings.from_qsettings(self._settings)
         self._mqtt_manager = MQTTManager(self)
@@ -125,7 +127,10 @@ class MainWindow(QMainWindow):
         self._mqtt_settings_dialog = MQTTSettingsDialog(self)
         self._mqtt_monitor_widget = MQTTMonitorWidget(self)
         self._mqtt_monitor_widget.set_delimiter(self._plot_config.delimiter)
-        self._mqtt_monitor_widget.set_line_callback(self._push_mqtt_line_to_dashboard)
+        self._mqtt_monitor_widget.set_values_callback(self._on_mqtt_plot_values)
+        self._mqtt_monitor_widget.plot_variables_changed.connect(
+            self._sync_mqtt_variables_to_plot_config
+        )
 
         self._tabs = QTabWidget()
         self._terminal_tab_index = self._tabs.addTab(terminal_widget, "Terminal")
@@ -169,6 +174,9 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self._restore_window_state()
         self._restore_last_preset()
+        self._sync_mqtt_variables_to_plot_config(
+            self._mqtt_monitor_widget.get_plot_variable_names()
+        )
 
         self._port_manager.set_auto_reconnect(self._serial_settings.auto_reconnect)
 
@@ -184,7 +192,7 @@ class MainWindow(QMainWindow):
         menu = self.menuBar()
 
         file_menu = menu.addMenu("File")
-        self._action_connect_toggle = QAction("Disconnected", self)
+        self._action_connect_toggle = QAction("Serial Disconnected", self)
         self._action_connect_toggle.setIcon(_disconnect_icon())
         self._action_connect_toggle.setCheckable(True)
         self._action_quit = QAction("Quit", self)
@@ -337,7 +345,9 @@ class MainWindow(QMainWindow):
     @Slot(bool)
     def _on_connection_changed(self, connected: bool) -> None:
         self._action_connect_toggle.setChecked(connected)
-        self._action_connect_toggle.setText("Connected" if connected else "Disconnected")
+        self._action_connect_toggle.setText(
+            "Serial Connected" if connected else "Serial Disconnected"
+        )
         self._action_connect_toggle.setIcon(
             _connect_icon() if connected else _disconnect_icon()
         )
@@ -410,9 +420,54 @@ class MainWindow(QMainWindow):
     def _on_mqtt_message(self, topic: str, payload: bytes) -> None:
         self._mqtt_monitor_widget.on_message_received(topic, payload)
 
-    def _push_mqtt_line_to_dashboard(self, line: str) -> None:
+    def _on_mqtt_plot_values(self, values_by_name: dict[str, float]) -> None:
+        """Update last MQTT values and push one combined plot line to the dashboard."""
+        self._last_mqtt_values.update(values_by_name)
+        # Plot uses c0, c1, ... in series_variables; map MQTT variable names to those keys
+        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
+        col = self._plot_config.column_names
+        updated_names = set()
+        for i in mqtt_indices:
+            name = col.get(i, f"c{i}")
+            if name in values_by_name:
+                updated_names.add(f"c{i}")
+                if name != f"c{i}":
+                    updated_names.add(name)
+        self._push_plot_line(updated_names=updated_names)
+
+    def _build_plot_line(self) -> str:
+        """Build one delimiter-separated line from serial + MQTT last values (same column order as config)."""
+        col = self._plot_config.column_names
+        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
+        if not col:
+            return ""
+        delim = self._plot_config.delimiter
+        max_idx = max(col.keys())
+        parts: list[str] = []
+        for i in range(max_idx + 1):
+            name = col.get(i, f"c{i}")
+            val = self._last_mqtt_values.get(name) if i in mqtt_indices else self._last_serial_values.get(name)
+            parts.append(str(val) if val is not None else "")
+        return delim.join(parts)
+
+    def _push_plot_line(self, updated_names: set[str] | None = None) -> None:
+        """Build combined plot line and send to dashboard. If updated_names is set, only those variables get a new point."""
+        line = self._build_plot_line()
         if self._dashboard_window and line:
-            self._dashboard_window.handle_line(line)
+            self._dashboard_window.handle_line(line, updated_names=updated_names)
+
+    def _sync_mqtt_variables_to_plot_config(self, names: list[str]) -> None:
+        """Replace MQTT variable block in PlotConfig so Setup shows serial + MQTT (source-agnostic)."""
+        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
+        for i in mqtt_indices:
+            self._plot_config.column_names.pop(i, None)
+        next_idx = max(self._plot_config.column_names.keys(), default=-1) + 1
+        self._plot_config.mqtt_column_indices = set(range(next_idx, next_idx + len(names)))
+        for i, name in enumerate(names):
+            if name:
+                self._plot_config.column_names[next_idx + i] = name
+        if self._dashboard_window:
+            self._dashboard_window.apply_config(self._plot_config)
 
     def _open_mqtt_settings(self) -> None:
         self._mqtt_settings_dialog.load(self._mqtt_settings)
@@ -468,8 +523,26 @@ class MainWindow(QMainWindow):
     def _on_data_received(self, data: bytes) -> None:
         text = data.decode("utf-8", errors="replace")
         lines = self._console.append_data(text, self._serial_settings.timestamp_prefix)
+        delim = self._plot_config.delimiter
+        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
+        col = self._plot_config.column_names
         for line in lines:
-            if self._dashboard_window:
+            if self._dashboard_window and col:
+                parts = [p.strip() for p in line.split(delim)]
+                updated_serial: set[str] = set()
+                for i, raw in enumerate(parts):
+                    if i in mqtt_indices:
+                        continue
+                    name = col.get(i, f"c{i}")
+                    try:
+                        self._last_serial_values[name] = float(raw)
+                        updated_serial.add(f"c{i}")  # plot uses c0, c1, ... in series_variables
+                        if name != f"c{i}":
+                            updated_serial.add(name)  # and possibly sanitized column name
+                    except (ValueError, TypeError):
+                        pass
+                self._push_plot_line(updated_names=updated_serial)
+            elif self._dashboard_window and line:
                 self._dashboard_window.handle_line(line)
             if self._file_logger.is_active():
                 self._file_logger.log_line(line)

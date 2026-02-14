@@ -78,8 +78,11 @@ class DashboardWindow(QWidget):
                 continue
             plot_config.delimiter = config.delimiter
             plot_config.column_names = config.column_names
+            plot_config.mqtt_column_indices = getattr(
+                config, "mqtt_column_indices", set()
+            )
             plot_config.transform_expressions = config.transform_expressions
-            plot.set_config(plot_config)
+            plot.update_config(plot_config)
             self._update_plot_title(plot, plot_config)
         self._refresh_variable_lists()
 
@@ -89,13 +92,20 @@ class DashboardWindow(QWidget):
 
     def _config_variables(self) -> list[tuple[str, str]]:
         names = self._config.column_names
+        mqtt_indices = getattr(
+            self._config, "mqtt_column_indices", set()
+        )
         variables: list[tuple[str, str]] = []
         max_index = max(names.keys(), default=-1)
         max_index = max(max_index, 0)
         for idx in range(max_index + 1):
             key = f"c{idx}"
             label = names.get(idx, key)
-            display = f"{label} ({key})" if label != key else label
+            origin = "mqtt" if idx in mqtt_indices else "serial"
+            if label != key:
+                display = f"{label} ({origin})"
+            else:
+                display = f"{key} ({origin})"
             variables.append((key, display))
         for transform in self._config.transform_expressions:
             variables.append((transform.name, f"{transform.name} (fx)"))
@@ -139,9 +149,9 @@ class DashboardWindow(QWidget):
             self._inactive_plots.discard(plot)
             self._update_plot_title(plot, config)
 
-    def handle_line(self, line: str) -> None:
+    def handle_line(self, line: str, updated_names: set[str] | None = None) -> None:
         for plot in self._plot_panels:
-            plot.handle_line(line)
+            plot.handle_line(line, updated_names=updated_names)
             config = self._plot_configs.get(plot)
             if config:
                 self._update_plot_title(plot, config)
