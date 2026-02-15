@@ -10,7 +10,7 @@ from copy import deepcopy
 from dataclasses import replace
 from typing import Callable
 
-from PySide6.QtCore import Qt, SignalInstance
+from PySide6.QtCore import Qt, QTimer, SignalInstance
 from PySide6.QtGui import QHideEvent, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -269,6 +269,9 @@ class VariablesDialog(QDialog):
         self._serial_config = deepcopy(serial_config)  # read-only: for details & Add/Edit
         self._get_values = get_values
         self._values_updated_signal = values_updated_signal
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.timeout.connect(self._refresh_table)
+        self._refresh_timer.setInterval(400)
 
         # -- Variables table (no Serial Parser section; config is in Serial menu/settings) --
         self._table = QTableWidget(0, 5)
@@ -320,12 +323,13 @@ class VariablesDialog(QDialog):
         super().showEvent(event)
         if self._values_updated_signal is not None:
             self._values_updated_signal.connect(
-                self._refresh_table, Qt.ConnectionType.QueuedConnection
+                self._refresh_table, Qt.ConnectionType.DirectConnection
             )
-        # Refresh immediately so serial and transform values are current when dialog opens
         self._refresh_table()
+        self._refresh_timer.start()
 
     def hideEvent(self, event: QHideEvent) -> None:
+        self._refresh_timer.stop()
         if self._values_updated_signal is not None:
             try:
                 self._values_updated_signal.disconnect(self._refresh_table)
