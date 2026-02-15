@@ -5,6 +5,7 @@ from PySide6.QtGui import QColor, QFont, QIntValidator
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 from PySide6.QtWidgets import (
     QCheckBox,
+    QColorDialog,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -18,7 +19,6 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QVBoxLayout,
     QWidget,
-    QColorDialog,
 )
 
 from ..serial.settings import AppearanceSettings, SerialSettings
@@ -208,7 +208,11 @@ class SettingsDialog(QDialog):
             self._appearance_settings.text_color = color.name()
         self._update_color_previews()
 
-    def load(self, serial_settings: SerialSettings, appearance: AppearanceSettings) -> None:
+    def load(
+        self,
+        serial_settings: SerialSettings,
+        appearance: AppearanceSettings,
+    ) -> None:
         self._serial_settings = serial_settings
         self._appearance_settings = appearance
 

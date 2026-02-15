@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
 )
 
-from .plot_panel import PlotConfig
+from ..config.plot_config import PlotConfig
 
 
 class PlotSetupDialog(QDialog):

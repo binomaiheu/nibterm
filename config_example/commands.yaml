@@ -20,6 +20,14 @@ commands:
         label: Freq (Hz)
         default: "1000"
         description: PWM frequency in Hertz.
+  - label: read
+    command: "read\n"
+    description: Read with optional submit.
+    options:
+      - flag: "-s"
+        label: Submit
+        type: bool
+        default: false
   - label: help
     command: "help\n"
     description: Show the commands in the terminal

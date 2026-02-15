@@ -4,15 +4,28 @@ from PySide6.QtCore import QDateTime, Qt
 from PySide6.QtGui import QColor, QFont, QPalette, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit
 
+from ..config import defaults
+
 
 class ConsoleWidget(QPlainTextEdit):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setReadOnly(True)
-        self.document().setMaximumBlockCount(5000)
+        self._max_block_count = defaults.DEFAULT_CONSOLE_MAX_BLOCK_COUNT
+        self._timestamp_color = defaults.DEFAULT_CONSOLE_TIMESTAMP_COLOR
+        self.document().setMaximumBlockCount(self._max_block_count)
         self._line_buffer = ""
         self._display_at_line_start = True  # for timestamp at start of each line
         self._default_text_color = QColor("black")
+
+    def set_max_block_count(self, count: int) -> None:
+        """Set the maximum number of lines kept in the console buffer."""
+        self._max_block_count = count
+        self.document().setMaximumBlockCount(count)
+
+    def set_timestamp_color(self, color: str) -> None:
+        """Set the color used for timestamp prefixes."""
+        self._timestamp_color = color
 
     def clear(self) -> None:
         super().clear()
@@ -122,7 +135,7 @@ class ConsoleWidget(QPlainTextEdit):
 
     def _insert_timestamp(self, cursor: QTextCursor, ts: str) -> None:
         ts_format = QTextCharFormat()
-        ts_format.setForeground(QColor("#2e7d32"))
+        ts_format.setForeground(QColor(self._timestamp_color))
         cursor.setCharFormat(ts_format)
         cursor.insertText(f"[{ts}] ")
         cursor.setCharFormat(QTextCharFormat())
