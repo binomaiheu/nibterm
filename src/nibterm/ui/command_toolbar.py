@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QSettings, Qt, Signal, QSize
 from PySide6.QtGui import QAction, QFontMetrics
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -37,6 +38,8 @@ class CommandToolbar(QToolBar):
         self._param_inputs: dict[str, dict[str, QLineEdit]] = {}
         self._param_summaries: dict[str, QLabel] = {}
         self._param_containers: dict[str, QWidget] = {}
+        self._option_checkboxes: dict[str, dict[str, QCheckBox]] = {}
+        self._option_value_edits: dict[str, dict[str, QLineEdit | None]] = {}
 
         self._profile_label = QLabel("-")
         self._profile_label.setStyleSheet("font-weight: bold;")
@@ -103,6 +106,8 @@ class CommandToolbar(QToolBar):
         self._command_actions.clear()
         self._param_inputs.clear()
         self._param_summaries.clear()
+        self._option_checkboxes.clear()
+        self._option_value_edits.clear()
         self._tree.clear()
 
         if not self._preset:
@@ -185,9 +190,71 @@ class CommandToolbar(QToolBar):
         else:
             summary.setText("(n/a)")
 
+        if command.options:
+            option_checkboxes: dict[str, QCheckBox] = {}
+            option_value_edits: dict[str, QLineEdit | None] = {}
+            for opt in command.options:
+                child = QTreeWidgetItem(item)
+                child.setSizeHint(0, QSize(0, 28))
+                row_widget = QWidget()
+                row_layout = QHBoxLayout(row_widget)
+                row_layout.setContentsMargins(0, 0, 0, 0)
+                cb = QCheckBox()
+                cb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                opt_label = opt.label or opt.flag
+                cb.setText(opt_label)
+                if opt.description:
+                    cb.setToolTip(opt.description)
+                enabled_key = self._option_enabled_key(command.label, opt.flag)
+                stored_enabled = self._settings.value(enabled_key, None)
+                default_checked = isinstance(opt.default, bool) and opt.default
+                if stored_enabled is not None:
+                    cb.setChecked(bool(stored_enabled))
+                else:
+                    cb.setChecked(default_checked)
+                cb.stateChanged.connect(
+                    lambda _state, k=enabled_key: self._settings.setValue(k, 1 if _state else 0)
+                )
+                cb.stateChanged.connect(
+                    lambda _state, lbl=command.label: self._update_param_summary(lbl)
+                )
+                row_layout.addWidget(cb)
+                row_layout.addStretch(1)
+                option_checkboxes[opt.flag] = cb
+                self._tree.setItemWidget(child, 0, row_widget)
+                if opt.type == "value":
+                    entry = QLineEdit()
+                    value_key = self._option_value_key(command.label, opt.flag)
+                    stored_val = self._settings.value(value_key, "", str)
+                    if stored_val:
+                        entry.setText(stored_val)
+                    elif isinstance(opt.default, str):
+                        entry.setText(opt.default)
+                    entry.textChanged.connect(
+                        lambda value, k=value_key: self._settings.setValue(k, value)
+                    )
+                    entry.textChanged.connect(
+                        lambda _value, lbl=command.label: self._update_param_summary(lbl)
+                    )
+                    option_value_edits[opt.flag] = entry
+                    self._tree.setItemWidget(child, 1, entry)
+                else:
+                    option_value_edits[opt.flag] = None
+            self._option_checkboxes[command.label] = option_checkboxes
+            self._option_value_edits[command.label] = option_value_edits
+            self._update_param_summary(command.label)
+
     def _param_key(self, label: str, param_name: str) -> str:
         preset = self._preset.name if self._preset else "unknown"
         return f"commands/params/{preset}/{label}/{param_name}"
+
+    def _option_enabled_key(self, label: str, flag: str) -> str:
+        preset = self._preset.name if self._preset else "unknown"
+        return f"commands/options/{preset}/{label}/{flag}_enabled"
+
+    def _option_value_key(self, label: str, flag: str) -> str:
+        preset = self._preset.name if self._preset else "unknown"
+        return f"commands/options/{preset}/{label}/{flag}"
 
     def _emit_command(self, template: str, label: str) -> None:
         params = {}
@@ -206,20 +273,65 @@ class CommandToolbar(QToolBar):
             )
             return
         try:
-            rendered = template.format(**params)
+            rendered = template.format(**params) if params else template
         except Exception as exc:
             QMessageBox.critical(self, "Command format error", str(exc))
             return
+        if self._preset:
+            command_obj = next(
+                (c for c in self._preset.commands if c.label == label),
+                None,
+            )
+            if command_obj and command_obj.options:
+                option_parts: list[str] = []
+                checkboxes = self._option_checkboxes.get(label, {})
+                value_edits = self._option_value_edits.get(label, {})
+                for opt in command_obj.options:
+                    cb = checkboxes.get(opt.flag)
+                    if cb and cb.isChecked():
+                        option_parts.append(opt.flag)
+                        if opt.type == "value":
+                            edit = value_edits.get(opt.flag)
+                            if edit and edit.text().strip():
+                                option_parts.append(edit.text().strip())
+                if option_parts:
+                    # Insert options before any trailing newline(s) so e.g. "read\n" -> "read -s\n"
+                    trailing_newlines = ""
+                    for i in range(len(rendered) - 1, -1, -1):
+                        if rendered[i] in "\n\r":
+                            trailing_newlines = rendered[i] + trailing_newlines
+                        else:
+                            break
+                    base = rendered[: len(rendered) - len(trailing_newlines)].rstrip()
+                    rendered = base + " " + " ".join(option_parts) + trailing_newlines
         self.command_requested.emit(rendered)
 
     def _update_param_summary(self, label: str) -> None:
         summary = self._param_summaries.get(label)
-        inputs = self._param_inputs.get(label)
-        if not summary or not inputs:
+        if not summary:
             return
         parts: list[str] = []
-        for name, entry in inputs.items():
-            value = entry.text().strip()
-            if value:
-                parts.append(f"{name}={value}")
-        summary.setText(f"({', '.join(parts)})" if parts else "")
+        inputs = self._param_inputs.get(label)
+        if inputs:
+            for name, entry in inputs.items():
+                value = entry.text().strip()
+                if value:
+                    parts.append(f"{name}={value}")
+        if self._preset:
+            command_obj = next(
+                (c for c in self._preset.commands if c.label == label),
+                None,
+            )
+            if command_obj and command_obj.options:
+                checkboxes = self._option_checkboxes.get(label, {})
+                value_edits = self._option_value_edits.get(label, {})
+                for opt in command_obj.options:
+                    cb = checkboxes.get(opt.flag)
+                    if cb and cb.isChecked():
+                        if opt.type == "value":
+                            edit = value_edits.get(opt.flag)
+                            val = edit.text().strip() if edit else ""
+                            parts.append(f"{opt.flag}={val}" if val else opt.flag)
+                        else:
+                            parts.append(opt.flag)
+        summary.setText(f"({', '.join(parts)})" if parts else "(n/a)")

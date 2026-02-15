@@ -157,6 +157,65 @@ def _help_content() -> list[tuple[str, str]]:
             arrange multiple plot windows.</p>
             """,
         ),
+        (
+            "Command presets",
+            """
+            <h1>Command presets</h1>
+            <p>Command presets let you load a set of labeled commands (e.g. for a specific device) and run them from the
+            <b>Commands</b> toolbar on the right. Each preset has a <b>name</b> and a list of <b>commands</b>. You can
+            load a preset via the toolbar or <b>Serial</b> (or Commands) menu.</p>
+            <h2>Preset and command descriptions</h2>
+            <p>The preset is identified by its <b>name</b> in the YAML. Each command can have a <b>description</b>;
+            it is shown as a tooltip on the command button in the toolbar.</p>
+            <h2>YAML format</h2>
+            <p>Presets are YAML files with this structure:</p>
+            <ul>
+                <li><b>name</b> — Preset name (string, required).</li>
+                <li><b>commands</b> — List of command entries (required).</li>
+            </ul>
+            <p>Each command entry can have:</p>
+            <ul>
+                <li><b>label</b> — Button label in the toolbar (required).</li>
+                <li><b>command</b> — The command string sent when you click the button (required). It can contain
+                placeholders like <code>{param_name}</code> that are filled from the parameter inputs.</li>
+                <li><b>color</b> — Optional button background color (e.g. <code>#e3f2fd</code>).</li>
+                <li><b>description</b> — Optional tooltip for the command button.</li>
+                <li><b>params</b> — Optional list of parameters. Each param has: <b>name</b> (used in the command template),
+                optional <b>label</b>, <b>default</b>, and <b>description</b>. The UI shows a line edit per param; values
+                are substituted into the command string.</li>
+                <li><b>options</b> — Optional list of flags. Each option has: <b>flag</b> (e.g. <code>-s</code> or
+                <code>--timeout</code>), optional <b>label</b>, <b>type</b> (<code>bool</code> or <code>value</code>),
+                optional <b>default</b>, and optional <b>description</b>. In the UI, boolean options are checkboxes;
+                value options are a checkbox plus a value field. When you run the command, only enabled options are
+                appended (e.g. <code>read -s</code> or <code>read --timeout 5</code>).</li>
+            </ul>
+            <h3>Example YAML</h3>
+            <pre>name: my-device
+commands:
+  - label: ping
+    command: "ping\\n"
+    description: Connectivity check.
+  - label: read
+    command: "read\\n"
+    description: Read with optional submit.
+    options:
+      - flag: "-s"
+        label: Submit
+        type: bool
+        default: false
+  - label: set pwm
+    command: "pwm {duty} {freq}\\n"
+    params:
+      - name: duty
+        label: Duty (%)
+        default: "50"
+      - name: freq
+        label: Freq (Hz)
+        default: "1000"</pre>
+            <p>In the YAML file, <code>\\n</code> in the command string sends a newline after the command.</p>
+            <p>Parameter and option values are remembered per preset in the application settings.</p>
+            """,
+        ),
     ]
 
 

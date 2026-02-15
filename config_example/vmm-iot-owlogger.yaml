@@ -90,6 +90,16 @@ commands:
   - label: read
     command: "read\n"
     description: Read the sensors.
+    options:
+      - flag: "-s"
+        label: submit
+        type: bool
+        default: false
+      - flag: "-f"
+        label: format
+        type: value
+        default: "csv"
+        description: Format of the readout.
   - label: arch -r
     command: "arch -r\n"
     description: Read the device archive
