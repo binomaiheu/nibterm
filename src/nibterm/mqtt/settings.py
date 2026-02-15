@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QSettings
 
+from ..config import settings_keys as SK
+
 
 @dataclass
 class MQTTSettings:
@@ -17,24 +19,24 @@ class MQTTSettings:
     topic_root: str = ""
 
     def to_qsettings(self, settings: QSettings) -> None:
-        settings.setValue("mqtt/host", self.host)
-        settings.setValue("mqtt/port", self.port)
-        settings.setValue("mqtt/username", self.username)
-        settings.setValue("mqtt/password", self.password)
-        settings.setValue("mqtt/use_tls", self.use_tls)
-        settings.setValue("mqtt/ca_certificate", self.ca_certificate)
-        settings.setValue("mqtt/tls_insecure", self.tls_insecure)
-        settings.setValue("mqtt/topic_root", self.topic_root)
+        settings.setValue(SK.MQTT_HOST, self.host)
+        settings.setValue(SK.MQTT_PORT, self.port)
+        settings.setValue(SK.MQTT_USERNAME, self.username)
+        settings.setValue(SK.MQTT_PASSWORD, self.password)
+        settings.setValue(SK.MQTT_USE_TLS, self.use_tls)
+        settings.setValue(SK.MQTT_CA_CERTIFICATE, self.ca_certificate)
+        settings.setValue(SK.MQTT_TLS_INSECURE, self.tls_insecure)
+        settings.setValue(SK.MQTT_TOPIC_ROOT, self.topic_root)
 
     @staticmethod
     def from_qsettings(settings: QSettings) -> "MQTTSettings":
         return MQTTSettings(
-            host=settings.value("mqtt/host", "localhost", str),
-            port=settings.value("mqtt/port", 1883, int),
-            username=settings.value("mqtt/username", "", str),
-            password=settings.value("mqtt/password", "", str),
-            use_tls=settings.value("mqtt/use_tls", False, bool),
-            ca_certificate=settings.value("mqtt/ca_certificate", "", str),
-            tls_insecure=settings.value("mqtt/tls_insecure", False, bool),
-            topic_root=settings.value("mqtt/topic_root", "", str),
+            host=settings.value(SK.MQTT_HOST, "localhost", str),
+            port=settings.value(SK.MQTT_PORT, 1883, int),
+            username=settings.value(SK.MQTT_USERNAME, "", str),
+            password=settings.value(SK.MQTT_PASSWORD, "", str),
+            use_tls=settings.value(SK.MQTT_USE_TLS, False, bool),
+            ca_certificate=settings.value(SK.MQTT_CA_CERTIFICATE, "", str),
+            tls_insecure=settings.value(SK.MQTT_TLS_INSECURE, False, bool),
+            topic_root=settings.value(SK.MQTT_TOPIC_ROOT, "", str),
         )

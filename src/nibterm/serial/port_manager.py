@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import QObject, QTimer, Signal, Slot
 from PySide6.QtSerialPort import QSerialPort
+
+logger = logging.getLogger(__name__)
 
 from .settings import SerialSettings
 

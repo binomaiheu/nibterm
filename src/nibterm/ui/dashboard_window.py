@@ -1,36 +1,42 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import Callable
 
 from PySide6.QtCore import QSettings, Qt, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QMdiArea,
     QMdiSubWindow,
     QDialog,
-    QToolBar,
     QVBoxLayout,
     QWidget,
 )
 
-from .plot_panel import PlotConfig, PlotPanel
+from ..config import settings_keys as SK
+from ..config.plot_config import PlotConfig
+from .plot_panel import PlotPanel
 from .plot_setup_dialog import PlotSetupDialog
 
 
 class DashboardWindow(QWidget):
     closed = Signal()
 
-    def __init__(self, settings: QSettings, config: PlotConfig, parent=None) -> None:
+    def __init__(
+        self,
+        settings: QSettings,
+        config: PlotConfig,
+        variable_list_fn: Callable[[], list[tuple[str, str]]],
+        parent=None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("nibterm - Dashboard")
         self.setMinimumSize(800, 500)
         self._settings = settings
         self._config = config
+        self._variable_list_fn = variable_list_fn
         self._mdi = QMdiArea(self)
         self._mdi.setViewMode(QMdiArea.ViewMode.SubWindowView)
-
-        self._toolbar = QToolBar("Dashboard")
-        self._toolbar.setMovable(False)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._mdi)
@@ -43,6 +49,7 @@ class DashboardWindow(QWidget):
 
     def add_plot(self) -> None:
         plot = PlotPanel()
+        plot.set_variable_list_fn(self._variable_list_fn)
         config = self._new_plot_config()
         plot.set_config(config)
         plot.set_enabled(False)
@@ -70,46 +77,15 @@ class DashboardWindow(QWidget):
         active.close()
         self._mdi.tileSubWindows()
 
-    def apply_config(self, config: PlotConfig) -> None:
-        self._config = config
+    def on_variables_changed(self) -> None:
+        """Called when the global variable list changes.
+
+        Updates plot titles to reflect any renamed variables.
+        """
         for plot in self._plot_panels:
-            plot_config = self._plot_configs.get(plot)
-            if not plot_config:
-                continue
-            plot_config.delimiter = config.delimiter
-            plot_config.column_names = config.column_names
-            plot_config.mqtt_column_indices = getattr(
-                config, "mqtt_column_indices", set()
-            )
-            plot_config.transform_expressions = config.transform_expressions
-            plot.update_config(plot_config)
-            self._update_plot_title(plot, plot_config)
-        self._refresh_variable_lists()
-
-    def _refresh_variable_lists(self) -> None:
-        variables = self._config_variables()
-        self._cached_variables = variables
-
-    def _config_variables(self) -> list[tuple[str, str]]:
-        names = self._config.column_names
-        mqtt_indices = getattr(
-            self._config, "mqtt_column_indices", set()
-        )
-        variables: list[tuple[str, str]] = []
-        max_index = max(names.keys(), default=-1)
-        max_index = max(max_index, 0)
-        for idx in range(max_index + 1):
-            key = f"c{idx}"
-            label = names.get(idx, key)
-            origin = "mqtt" if idx in mqtt_indices else "serial"
-            if label != key:
-                display = f"{label} ({origin})"
-            else:
-                display = f"{key} ({origin})"
-            variables.append((key, display))
-        for transform in self._config.transform_expressions:
-            variables.append((transform.name, f"{transform.name} (fx)"))
-        return variables
+            config = self._plot_configs.get(plot)
+            if config:
+                self._update_plot_title(plot, config)
 
     def _current_plot(self) -> tuple[PlotPanel | None, PlotConfig | None]:
         active = self._mdi.activeSubWindow()
@@ -121,20 +97,14 @@ class DashboardWindow(QWidget):
         return widget, self._plot_configs.get(widget)
 
     def _new_plot_config(self) -> PlotConfig:
-        config = deepcopy(self._config)
-        if not config.series_variables:
-            config.series_variables = [f"c{idx}" for idx in config.columns]
-        if not config.xy_x_var:
-            config.xy_x_var = "c0"
-        if not config.xy_y_var:
-            config.xy_y_var = "c1"
-        return config
+        return deepcopy(self._config)
 
     def _open_setup(self) -> None:
         plot, config = self._current_plot()
         if not plot or not config:
             return
-        dialog = PlotSetupDialog(self._config_variables(), self)
+        variables = self._variable_list_fn()
+        dialog = PlotSetupDialog(variables, self)
         dialog.load(config)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             updated = dialog.config()
@@ -149,9 +119,10 @@ class DashboardWindow(QWidget):
             self._inactive_plots.discard(plot)
             self._update_plot_title(plot, config)
 
-    def handle_line(self, line: str, updated_names: set[str] | None = None) -> None:
+    def handle_values(self, values: dict[str, float], updated_names: set[str] | None = None) -> None:
+        """Push a values dict (from VariableManager) to all plot panels."""
         for plot in self._plot_panels:
-            plot.handle_line(line, updated_names=updated_names)
+            plot.handle_values(values, updated_names=updated_names)
             config = self._plot_configs.get(plot)
             if config:
                 self._update_plot_title(plot, config)
@@ -178,18 +149,18 @@ class DashboardWindow(QWidget):
     def cascade_plots(self) -> None:
         self._mdi.cascadeSubWindows()
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:
         event.ignore()
         self.hide()
         self.closed.emit()
 
     def save_state(self) -> None:
-        self._settings.setValue("dashboard/plot_count", len(self._plot_panels))
+        self._settings.setValue(SK.DASHBOARD_PLOT_COUNT, len(self._plot_panels))
         for idx, plot in enumerate(self._plot_panels):
             config = self._plot_configs.get(plot)
             if not config:
                 continue
-            prefix = f"dashboard/plots/{idx}"
+            prefix = SK.DASHBOARD_PLOTS_PREFIX.format(idx)
             self._settings.setValue(f"{prefix}/mode", config.mode)
             self._settings.setValue(
                 f"{prefix}/series_vars",
@@ -206,14 +177,14 @@ class DashboardWindow(QWidget):
             return
         self._restored = True
         self._clear_all_plots()
-        count = self._settings.value("dashboard/plot_count", 0, int)
+        count = self._settings.value(SK.DASHBOARD_PLOT_COUNT, 0, int)
         if count <= 0:
             self.add_plot()
             return
         for _ in range(count):
             self.add_plot()
         for idx, plot in enumerate(self._plot_panels):
-            prefix = f"dashboard/plots/{idx}"
+            prefix = SK.DASHBOARD_PLOTS_PREFIX.format(idx)
             config = self._plot_configs.get(plot)
             if not config:
                 continue
@@ -253,25 +224,17 @@ class DashboardWindow(QWidget):
     def _plot_title(self, plot: PlotPanel, config: PlotConfig) -> str:
         count = plot.current_point_count()
         if config.mode == "xy":
-            x_label = self._variable_label(config.xy_x_var, config)
-            y_label = self._variable_label(config.xy_y_var, config)
             return (
-                f"XY: {x_label} vs {y_label} "
+                f"XY: {config.xy_x_var} vs {config.xy_y_var} "
                 f"(buffer: {count}/{config.buffer_size})"
             )
-        labels = [self._variable_label(key, config) for key in config.series_variables]
+        labels = config.series_variables
         if not labels:
             return f"Timeseries (buffer: {count}/{config.buffer_size})"
         return (
             f"Timeseries: {', '.join(labels)} "
             f"(buffer: {count}/{config.buffer_size})"
         )
-
-    def _variable_label(self, key: str, config: PlotConfig) -> str:
-        if key.startswith("c") and key[1:].isdigit():
-            idx = int(key[1:])
-            return config.column_names.get(idx, key)
-        return key
 
     def _update_plot_title(self, plot: PlotPanel, config: PlotConfig) -> None:
         window = self._plot_windows.get(plot)

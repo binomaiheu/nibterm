@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 from PySide6.QtCore import QCoreApplication, QSettings, Qt, Slot
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QCloseEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -24,18 +27,25 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 
+from .config import settings_keys as SK
+from .config.migration import migrate_settings
+from .config.plot_config import PlotConfig
+from .data.variable_manager import VariableManager
 from .logging.file_logger import FileLogger
 from .mqtt import MQTTManager, MQTTSettings
 from .serial.port_manager import PortManager
 from .serial.settings import AppearanceSettings, SerialSettings
 from .ui.console import ConsoleWidget
-from .ui.plot_panel import PlotConfig, PlotPanel
-from .ui.plot_settings_dialog import PlotSettingsDialog
+from .ui.plot_panel import PlotPanel
+from .ui.serial_parser_dialog import SerialParserDialog
 from .ui.settings_dialog import SettingsDialog
 from .ui.command_toolbar import CommandToolbar
 from .ui.dashboard_window import DashboardWindow
 from .ui.mqtt_monitor import MQTTMonitorWidget
 from .ui.mqtt_settings_dialog import MQTTSettingsDialog
+from .ui.serial_plot_panel import SerialPlotPanel
+from .ui.variable_dialog import VariablesDialog
+from .ui.help_window import HelpWindow
 from .version import __version__
 
 # Resolve static dir: repo root when running from source, or package static if present
@@ -69,6 +79,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("nibterm - a vibe coded serial IoT device terminal")
 
         self._settings = QSettings()
+        migrate_settings(self._settings)
         self._serial_settings = SerialSettings.from_qsettings(self._settings)
         self._appearance_settings = AppearanceSettings.from_qsettings(self._settings)
         if self._appearance_settings.background_color.lower() in ("#000000", "black"):
@@ -114,10 +125,19 @@ class MainWindow(QMainWindow):
         terminal_widget = QWidget()
         terminal_widget.setLayout(terminal_layout)
 
+        # -- Variable Manager (central source of truth) --
+        self._variable_manager = VariableManager(self._settings, self)
+
         self._plot_config = PlotConfig.from_qsettings(self._settings)
-        self._dashboard_window = DashboardWindow(self._settings, self._plot_config, self)
-        self._last_serial_values: dict[str, float] = {}
-        self._last_mqtt_values: dict[str, float] = {}
+        self._dashboard_window = DashboardWindow(
+            self._settings,
+            self._plot_config,
+            variable_list_fn=self._variable_manager.get_variable_list,
+            parent=self,
+        )
+        self._variable_manager.variables_changed.connect(
+            self._dashboard_window.on_variables_changed
+        )
 
         self._mqtt_settings = MQTTSettings.from_qsettings(self._settings)
         self._mqtt_manager = MQTTManager(self)
@@ -125,12 +145,11 @@ class MainWindow(QMainWindow):
         self._mqtt_manager.connection_changed.connect(self._on_mqtt_connection_changed)
         self._mqtt_manager.error.connect(self._on_mqtt_error)
         self._mqtt_settings_dialog = MQTTSettingsDialog(self)
-        self._mqtt_monitor_widget = MQTTMonitorWidget(self)
-        self._mqtt_monitor_widget.set_delimiter(self._plot_config.delimiter)
+        self._mqtt_monitor_widget = MQTTMonitorWidget(self._variable_manager, self)
         self._mqtt_monitor_widget.set_values_callback(self._on_mqtt_plot_values)
-        self._mqtt_monitor_widget.plot_variables_changed.connect(
-            self._sync_mqtt_variables_to_plot_config
-        )
+
+        self._serial_plot_panel = SerialPlotPanel(self._variable_manager, self)
+        terminal_widget.layout().addWidget(self._serial_plot_panel)
 
         self._tabs = QTabWidget()
         self._terminal_tab_index = self._tabs.addTab(terminal_widget, "Terminal")
@@ -174,13 +193,10 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self._restore_window_state()
         self._restore_last_preset()
-        self._sync_mqtt_variables_to_plot_config(
-            self._mqtt_monitor_widget.get_plot_variable_names()
-        )
 
         self._port_manager.set_auto_reconnect(self._serial_settings.auto_reconnect)
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:
         self._save_settings()
         if self._file_logger.is_active():
             self._file_logger.stop()
@@ -202,8 +218,9 @@ class MainWindow(QMainWindow):
         self._action_settings = QAction("Configure...", self)
         self._action_settings.setMenuRole(QAction.MenuRole.NoRole)
         self._action_settings.triggered.connect(self._open_settings)
-        self._action_plot_settings = QAction("Data Pipeline...", self)
-        self._action_plot_settings.triggered.connect(self._open_plot_settings)
+        self._action_parser = QAction("Parser...", self)
+        self._action_parser.setMenuRole(QAction.MenuRole.NoRole)
+        self._action_parser.triggered.connect(self._open_serial_parser)
         self._action_clear = QAction("Clear terminal", self)
         self._action_clear.triggered.connect(self._console.clear)
         self._action_log_start = QAction("Start logging...", self)
@@ -212,7 +229,7 @@ class MainWindow(QMainWindow):
         self._action_log_start.triggered.connect(self._start_logging)
         self._action_log_stop.triggered.connect(self._stop_logging)
         serial_menu.addAction(self._action_settings)
-        serial_menu.addAction(self._action_plot_settings)
+        serial_menu.addAction(self._action_parser)
         serial_menu.addAction(self._action_clear)
         serial_menu.addSeparator()
         serial_menu.addAction(self._action_log_start)
@@ -222,8 +239,13 @@ class MainWindow(QMainWindow):
         self._action_mqtt_settings = QAction("Configure...", self)
         self._action_mqtt_settings.setMenuRole(QAction.MenuRole.NoRole)
         self._action_mqtt_settings.triggered.connect(self._open_mqtt_settings)
-
         mqtt_menu.addAction(self._action_mqtt_settings)
+
+        # -- Variables menu --
+        variables_menu = menu.addMenu("Variables")
+        self._action_manage_variables = QAction("Manage Variables...", self)
+        self._action_manage_variables.triggered.connect(self._open_variables_dialog)
+        variables_menu.addAction(self._action_manage_variables)
 
         view_menu = menu.addMenu("Dashboard")
         view_menu.addSeparator()
@@ -248,8 +270,11 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self._action_cascade_plots)
 
         help_menu = menu.addMenu("Help")
+        self._action_help = QAction("Help", self)
+        self._action_help.triggered.connect(self._show_help)
         self._action_about = QAction("About", self)
         self._action_about.triggered.connect(self._show_about)
+        help_menu.addAction(self._action_help)
         help_menu.addAction(self._action_about)
 
         file_menu.addSeparator()
@@ -290,12 +315,25 @@ class MainWindow(QMainWindow):
     @Slot()
     def _open_settings(self) -> None:
         self._settings_dialog.refresh_ports()
-        self._settings_dialog.load(self._serial_settings, self._appearance_settings)
+        self._settings_dialog.load(
+            self._serial_settings,
+            self._appearance_settings,
+        )
         if self._settings_dialog.exec() == QDialog.DialogCode.Accepted:
             self._apply_settings(
                 self._settings_dialog.serial_settings(),
                 self._settings_dialog.appearance_settings(),
             )
+
+    @Slot()
+    def _open_serial_parser(self) -> None:
+        """Open the Serial parser dialog (CSV / JSON)."""
+        dialog = SerialParserDialog(
+            self._variable_manager.serial_config,
+            parent=self,
+        )
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._variable_manager.set_serial_config(dialog.config())
 
     def _apply_appearance(self) -> None:
         self._console.set_appearance(
@@ -421,53 +459,10 @@ class MainWindow(QMainWindow):
         self._mqtt_monitor_widget.on_message_received(topic, payload)
 
     def _on_mqtt_plot_values(self, values_by_name: dict[str, float]) -> None:
-        """Update last MQTT values and push one combined plot line to the dashboard."""
-        self._last_mqtt_values.update(values_by_name)
-        # Plot uses c0, c1, ... in series_variables; map MQTT variable names to those keys
-        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
-        col = self._plot_config.column_names
-        updated_names = set()
-        for i in mqtt_indices:
-            name = col.get(i, f"c{i}")
-            if name in values_by_name:
-                updated_names.add(f"c{i}")
-                if name != f"c{i}":
-                    updated_names.add(name)
-        self._push_plot_line(updated_names=updated_names)
-
-    def _build_plot_line(self) -> str:
-        """Build one delimiter-separated line from serial + MQTT last values (same column order as config)."""
-        col = self._plot_config.column_names
-        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
-        if not col:
-            return ""
-        delim = self._plot_config.delimiter
-        max_idx = max(col.keys())
-        parts: list[str] = []
-        for i in range(max_idx + 1):
-            name = col.get(i, f"c{i}")
-            val = self._last_mqtt_values.get(name) if i in mqtt_indices else self._last_serial_values.get(name)
-            parts.append(str(val) if val is not None else "")
-        return delim.join(parts)
-
-    def _push_plot_line(self, updated_names: set[str] | None = None) -> None:
-        """Build combined plot line and send to dashboard. If updated_names is set, only those variables get a new point."""
-        line = self._build_plot_line()
-        if self._dashboard_window and line:
-            self._dashboard_window.handle_line(line, updated_names=updated_names)
-
-    def _sync_mqtt_variables_to_plot_config(self, names: list[str]) -> None:
-        """Replace MQTT variable block in PlotConfig so Setup shows serial + MQTT (source-agnostic)."""
-        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
-        for i in mqtt_indices:
-            self._plot_config.column_names.pop(i, None)
-        next_idx = max(self._plot_config.column_names.keys(), default=-1) + 1
-        self._plot_config.mqtt_column_indices = set(range(next_idx, next_idx + len(names)))
-        for i, name in enumerate(names):
-            if name:
-                self._plot_config.column_names[next_idx + i] = name
-        if self._dashboard_window:
-            self._dashboard_window.apply_config(self._plot_config)
+        """Update MQTT values via VariableManager and push to dashboard."""
+        all_values, updated_names = self._variable_manager.process_mqtt_values(values_by_name)
+        if self._dashboard_window and updated_names:
+            self._dashboard_window.handle_values(all_values, updated_names=updated_names)
 
     def _open_mqtt_settings(self) -> None:
         self._mqtt_settings_dialog.load(self._mqtt_settings)
@@ -501,6 +496,11 @@ class MainWindow(QMainWindow):
     def _on_mqtt_error(self, message: str) -> None:
         QMessageBox.warning(self, "MQTT", message)
 
+    def _show_help(self) -> None:
+        win = HelpWindow(self)
+        win.setWindowModality(Qt.WindowModality.NonModal)
+        win.show()
+
     def _show_about(self) -> None:
         version_text = __version__
         if version_text == "unknown":
@@ -523,30 +523,19 @@ class MainWindow(QMainWindow):
     def _on_data_received(self, data: bytes) -> None:
         text = data.decode("utf-8", errors="replace")
         lines = self._console.append_data(text, self._serial_settings.timestamp_prefix)
-        delim = self._plot_config.delimiter
-        mqtt_indices = getattr(self._plot_config, "mqtt_column_indices", set())
-        col = self._plot_config.column_names
+        has_serial_vars = any(
+            v.source == "serial" for v in self._variable_manager.variables
+        )
         for line in lines:
-            if self._dashboard_window and col:
-                parts = [p.strip() for p in line.split(delim)]
-                updated_serial: set[str] = set()
-                for i, raw in enumerate(parts):
-                    if i in mqtt_indices:
-                        continue
-                    name = col.get(i, f"c{i}")
-                    try:
-                        self._last_serial_values[name] = float(raw)
-                        updated_serial.add(f"c{i}")  # plot uses c0, c1, ... in series_variables
-                        if name != f"c{i}":
-                            updated_serial.add(name)  # and possibly sanitized column name
-                    except (ValueError, TypeError):
-                        pass
-                self._push_plot_line(updated_names=updated_serial)
-            elif self._dashboard_window and line:
-                self._dashboard_window.handle_line(line)
+            if self._dashboard_window and has_serial_vars:
+                all_values, updated = self._variable_manager.process_serial_line(line)
+                if updated:
+                    self._dashboard_window.handle_values(all_values, updated_names=updated)
             if self._file_logger.is_active():
                 self._file_logger.log_line(line)
                 self._update_log_status()
+        if lines:
+            self._variable_manager.set_last_serial_line(lines[-1])
 
     def _send_input_if_enabled(self) -> None:
         if self._serial_settings.send_on_enter:
@@ -628,15 +617,19 @@ class MainWindow(QMainWindow):
             size /= 1024
         return f"{size:.0f} PB"
 
-    def _open_plot_settings(self) -> None:
-        dialog = PlotSettingsDialog(self)
-        dialog.load(self._plot_config)
+    def _open_variables_dialog(self) -> None:
+        """Open the unified Variables dialog."""
+        dialog = VariablesDialog(
+            self._variable_manager.variables,
+            self._variable_manager.serial_config,
+            get_values=lambda: self._variable_manager.get_values(),
+            values_updated_signal=self._variable_manager.values_updated,
+            parent=self,
+        )
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self._plot_config = dialog.config()
-            if self._dashboard_window:
-                self._dashboard_window.apply_config(self._plot_config)
-            self._mqtt_monitor_widget.set_delimiter(self._plot_config.delimiter)
-            self._save_settings()
+            self._variable_manager.set_variables(dialog.variables())
+            # Refresh MQTT monitor table to stay in sync
+            self._mqtt_monitor_widget.refresh_from_manager()
 
     def _clear_plot(self) -> None:
         if not self._dashboard_window or not self._dashboard_window.has_active_plot():
@@ -673,18 +666,19 @@ class MainWindow(QMainWindow):
         self._appearance_settings.to_qsettings(self._settings)
         self._mqtt_settings.to_qsettings(self._settings)
         self._plot_config.to_qsettings(self._settings)
-        self._settings.setValue("window/geometry", self.saveGeometry())
-        self._settings.setValue("window/state", self.saveState())
+        self._variable_manager.save()
+        self._settings.setValue(SK.WINDOW_GEOMETRY, self.saveGeometry())
+        self._settings.setValue(SK.WINDOW_STATE, self.saveState())
         self._settings.setValue("view/tab", self._tabs.currentIndex())
         self._settings.setValue("view/splitter", self._main_splitter.saveState())
         if self._dashboard_window:
             self._dashboard_window.save_state()
 
     def _restore_window_state(self) -> None:
-        geometry = self._settings.value("window/geometry")
+        geometry = self._settings.value(SK.WINDOW_GEOMETRY)
         if geometry:
             self.restoreGeometry(geometry)
-        state = self._settings.value("window/state")
+        state = self._settings.value(SK.WINDOW_STATE)
         if state:
             self.restoreState(state)
         tab_index = self._settings.value("view/tab")
@@ -701,12 +695,13 @@ class MainWindow(QMainWindow):
 
 
     def _store_last_preset_path(self, path: str) -> None:
-        self._settings.setValue("commands/last_path", path)
+        self._settings.setValue(SK.COMMANDS_LAST_PATH, path)
 
     def _restore_last_preset(self) -> None:
-        path = self._settings.value("commands/last_path", "", str)
+        path = self._settings.value(SK.COMMANDS_LAST_PATH, "", str)
         if path:
             try:
                 self._command_toolbar.load_preset_from_path(path)
             except Exception:
-                self._settings.remove("commands/last_path")
+                logger.warning("Failed to restore preset from %s", path, exc_info=True)
+                self._settings.remove(SK.COMMANDS_LAST_PATH)

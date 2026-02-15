@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 import ssl
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 import paho.mqtt.client as mqtt
 from PySide6.QtCore import QObject, Signal
@@ -82,6 +85,7 @@ class MQTTManager(QObject):
                 )
             self._client.connect(host, port=port, keepalive=60)
         except Exception as e:
+            logger.exception("MQTT connect failed")
             self.error.emit(str(e))
             self._client = None
             return False
@@ -121,7 +125,7 @@ class MQTTManager(QObject):
                     self._client.loop_stop()
                     self._client.disconnect()
                 except Exception:
-                    pass
+                    logger.debug("Error during MQTT cleanup after failed connect", exc_info=True)
                 self._client = None
             return
         self._connected = True
