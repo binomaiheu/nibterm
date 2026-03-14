@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from dataclasses import replace
 from datetime import datetime
 from typing import Callable
 
@@ -37,6 +38,7 @@ from ..data.json_utils import (
 )
 from ..data.parsers import parse_csv_line, parse_json_payload, parse_regex_value
 from .clickable_display import PathClickableEdit, build_csv_column_ranges
+from .regex_edit_dialog import RegexEditDialog
 
 # Forward reference -- set at runtime by MainWindow
 from typing import TYPE_CHECKING
@@ -75,6 +77,7 @@ class MQTTMonitorWidget(QWidget):
         self._topic_parser_mode_combo = QComboBox()
         self._topic_parser_mode_combo.addItem("JSON", "json")
         self._topic_parser_mode_combo.addItem("CSV", "csv")
+        self._topic_parser_mode_combo.addItem("Regex", "regex")
         self._topic_parser_mode_combo.currentIndexChanged.connect(
             self._on_topic_parser_mode_changed
         )
@@ -103,6 +106,7 @@ class MQTTMonitorWidget(QWidget):
             QHeaderView.ResizeMode.Stretch
         )
         self._plot_table.itemChanged.connect(self._on_plot_table_item_changed)
+        self._plot_table.cellDoubleClicked.connect(self._on_table_cell_double_clicked)
         self._plot_add = QPushButton("Add")
         self._plot_remove = QPushButton("Remove")
         self._plot_clear_all = QPushButton("Clear all")
@@ -293,14 +297,22 @@ class MQTTMonitorWidget(QWidget):
                 )
             )
         elif cfg and cfg.mode == "regex":
+            last_payload = self._messages_by_topic.get(topic, b"")
+            try:
+                test_line = last_payload.decode("utf-8", errors="replace")
+            except (UnicodeDecodeError, AttributeError):
+                test_line = ""
+            dlg = RegexEditDialog(test_line=test_line, parent=self)
+            if dlg.exec() != RegexEditDialog.DialogCode.Accepted:
+                return
             name = unique_variable_name("regex_var", existing)
             self._variable_manager.add_variable(
                 VariableDefinition(
                     name=name,
                     source="mqtt",
                     mqtt_topic=topic,
-                    regex_pattern="",
-                    regex_group=1,
+                    regex_pattern=dlg.pattern(),
+                    regex_group=dlg.group(),
                 )
             )
         else:
@@ -328,6 +340,33 @@ class MQTTMonitorWidget(QWidget):
         """Remove all MQTT plot variables."""
         self._variable_manager.remove_all_mqtt_variables()
         self._update_message_display_plot_highlights()
+
+    def _on_table_cell_double_clicked(self, row: int, col: int) -> None:
+        """Open regex edit dialog when double-clicking in regex mode."""
+        if col != 1:
+            return
+        mqtt_vars = self._variable_manager.get_mqtt_variables()
+        if row < 0 or row >= len(mqtt_vars):
+            return
+        var = mqtt_vars[row]
+        cfg = self._variable_manager.get_topic_parser_config(var.mqtt_topic)
+        if cfg.mode != "regex":
+            return
+        last_payload = self._messages_by_topic.get(var.mqtt_topic, b"")
+        try:
+            test_line = last_payload.decode("utf-8", errors="replace")
+        except (UnicodeDecodeError, AttributeError):
+            test_line = ""
+        dlg = RegexEditDialog(
+            test_line=test_line,
+            pattern=var.regex_pattern,
+            group=var.regex_group,
+            parent=self,
+        )
+        if dlg.exec() != RegexEditDialog.DialogCode.Accepted:
+            return
+        new_var = replace(var, regex_pattern=dlg.pattern(), regex_group=dlg.group())
+        self._variable_manager.update_variable(var.name, new_var)
 
     def _on_value_clicked(self, path: str, key_name: str) -> None:
         """Add the clicked JSON path or CSV column to plot variables (avoid duplicates)."""
@@ -431,6 +470,17 @@ class MQTTMonitorWidget(QWidget):
         is_csv = self._topic_parser_mode_combo.currentData() == "csv"
         self._topic_parser_delimiter_label.setVisible(is_csv)
         self._topic_parser_delimiter_edit.setVisible(is_csv)
+        # Update placeholder text based on mode
+        mode = self._topic_parser_mode_combo.currentData()
+        if mode == "regex":
+            self._message_display.setPlaceholderText(
+                "MQTT messages will appear here. Switch to JSON or CSV to click values directly. "
+                "In Regex mode, click Add to configure a pattern."
+            )
+        else:
+            self._message_display.setPlaceholderText(
+                "MQTT messages will appear here. Click a value to add its JSON path to plot variables."
+            )
 
     def _on_topic_parser_delimiter_changed(self) -> None:
         if not self._displayed_topic_for_parser:

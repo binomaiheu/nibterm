@@ -29,6 +29,7 @@ class SerialParserDialog(QDialog):
         self._mode_combo = QComboBox()
         self._mode_combo.addItem("CSV", "csv")
         self._mode_combo.addItem("JSON", "json")
+        self._mode_combo.addItem("Regex", "regex")
         self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
 
         self._delimiter_label = QLabel("CSV delimiter")
@@ -62,8 +63,9 @@ class SerialParserDialog(QDialog):
         self._on_mode_changed()
 
     def _on_mode_changed(self) -> None:
-        is_csv = self._mode_combo.currentData() == "csv"
-        is_json = self._mode_combo.currentData() == "json"
+        mode = self._mode_combo.currentData()
+        is_csv = mode == "csv"
+        is_json = mode == "json"
         self._delimiter_edit.setVisible(is_csv)
         self._delimiter_label.setVisible(is_csv)
         self._json_prefix_edit.setVisible(is_json)

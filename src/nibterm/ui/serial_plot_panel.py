@@ -24,6 +24,7 @@ from ..data.json_utils import (
     unique_variable_name,
 )
 from .clickable_display import PathClickableEdit, build_csv_column_ranges
+from .regex_edit_dialog import RegexEditDialog
 
 if TYPE_CHECKING:
     from ..data.variable_manager import VariableManager
@@ -82,6 +83,7 @@ class SerialPlotPanel(QWidget):
             QHeaderView.ResizeMode.Stretch
         )
         self._plot_table.itemChanged.connect(self._on_serial_plot_table_item_changed)
+        self._plot_table.cellDoubleClicked.connect(self._on_table_cell_double_clicked)
         content_layout.addWidget(self._plot_table)
 
         btn_row = QHBoxLayout()
@@ -166,7 +168,12 @@ class SerialPlotPanel(QWidget):
                 self._last_line_display.set_path_ranges([])
                 self._last_line_display.set_plot_variable_paths(set())
         else:
-            self._last_line_label.setText("Last line (raw):")
+            if cfg.mode == "regex":
+                self._last_line_label.setText(
+                    "Last line (used for regex testing — click Add to configure a pattern):"
+                )
+            else:
+                self._last_line_label.setText("Last line (raw):")
             self._last_line_display.setMaximumBlockCount(1)
             self._last_line_display.setMinimumHeight(28)
             self._last_line_display.setMaximumHeight(60)
@@ -256,6 +263,20 @@ class SerialPlotPanel(QWidget):
             self._variable_manager.add_variable(
                 VariableDefinition(name=name, source="serial", json_path="$")
             )
+        elif cfg.mode == "regex":
+            test_line = self._variable_manager.get_last_serial_line()
+            dlg = RegexEditDialog(test_line=test_line, parent=self)
+            if dlg.exec() != RegexEditDialog.DialogCode.Accepted:
+                return
+            name = unique_variable_name("regex_var", existing)
+            self._variable_manager.add_variable(
+                VariableDefinition(
+                    name=name,
+                    source="serial",
+                    regex_pattern=dlg.pattern(),
+                    regex_group=dlg.group(),
+                )
+            )
         else:
             columns_used = {v.csv_column for v in serial_vars}
             col = 0
@@ -265,6 +286,28 @@ class SerialPlotPanel(QWidget):
             self._variable_manager.add_variable(
                 VariableDefinition(name=name, source="serial", csv_column=col)
             )
+
+    def _on_table_cell_double_clicked(self, row: int, col: int) -> None:
+        """Open regex edit dialog when double-clicking in regex mode."""
+        if col != 0:
+            return
+        if self._variable_manager.serial_config.mode != "regex":
+            return
+        serial_vars = self._variable_manager.get_serial_variables()
+        if row < 0 or row >= len(serial_vars):
+            return
+        var = serial_vars[row]
+        test_line = self._variable_manager.get_last_serial_line()
+        dlg = RegexEditDialog(
+            test_line=test_line,
+            pattern=var.regex_pattern,
+            group=var.regex_group,
+            parent=self,
+        )
+        if dlg.exec() != RegexEditDialog.DialogCode.Accepted:
+            return
+        new_var = replace(var, regex_pattern=dlg.pattern(), regex_group=dlg.group())
+        self._variable_manager.update_variable(var.name, new_var)
 
     def _on_remove(self) -> None:
         if self._plot_table is None:
