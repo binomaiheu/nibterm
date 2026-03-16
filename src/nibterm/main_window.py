@@ -382,17 +382,18 @@ class MainWindow(QMainWindow):
 
     @Slot(bool)
     def _on_connection_changed(self, connected: bool) -> None:
-        self._action_connect_toggle.setChecked(connected)
-        self._action_connect_toggle.setText(
-            "Serial Connected" if connected else "Serial Disconnected"
-        )
-        self._action_connect_toggle.setIcon(
-            _connect_icon() if connected else _disconnect_icon()
-        )
         if connected:
+            self._action_connect_toggle.setChecked(True)
+            self._action_connect_toggle.setText("Serial Connected")
+            self._action_connect_toggle.setIcon(_connect_icon())
             self._status_label.setText(self._connection_status_text())
             self._set_status_state("connected")
-        else:
+        elif not self._reconnecting:
+            # Only flip to Disconnected when we are not in the waiting-for-device state;
+            # _on_reconnecting handles the button label in that case.
+            self._action_connect_toggle.setChecked(False)
+            self._action_connect_toggle.setText("Serial Disconnected")
+            self._action_connect_toggle.setIcon(_disconnect_icon())
             self._status_label.setText("Disconnected")
             self._set_status_state("disconnected")
         if connected and self._reconnecting:
@@ -413,6 +414,9 @@ class MainWindow(QMainWindow):
             port = self._serial_settings.port_name or "device"
             self._status_label.setText(f"Waiting for {port}")
             self._set_status_state("waiting")
+            self._action_connect_toggle.setChecked(True)
+            self._action_connect_toggle.setText("Serial Waiting")
+            self._action_connect_toggle.setIcon(_disconnect_icon())
             if not self._reconnecting:
                 self._console.append_status_message(
                     "Waiting for device connection...",
@@ -421,10 +425,14 @@ class MainWindow(QMainWindow):
                 )
                 self._reconnecting = True
         else:
+            self._reconnecting = False
             if self._port_manager.is_open():
                 self._status_label.setText(self._connection_status_text())
                 self._set_status_state("connected")
             else:
+                self._action_connect_toggle.setChecked(False)
+                self._action_connect_toggle.setText("Serial Disconnected")
+                self._action_connect_toggle.setIcon(_disconnect_icon())
                 self._status_label.setText("Disconnected")
                 self._set_status_state("disconnected")
 
