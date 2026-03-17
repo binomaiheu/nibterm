@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QSizePolicy,
+    QTextBrowser,
 )
 
 from .config import settings_keys as SK
@@ -513,11 +514,52 @@ class MainWindow(QMainWindow):
         version_text = __version__
         if version_text == "unknown":
             version_text = "unknown (no git info)"
-        QMessageBox.about(
-            self,
-            "About nibterm",
-            f"nibterm\nVersion: {version_text}",
-        )
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("About nibterm")
+        dlg.setMinimumWidth(520)
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        browser.setFrameShape(browser.Shape.NoFrame)
+        browser.setHtml(f"""
+            <h2 style="margin-bottom:4px;">nibterm</h2>
+            <p style="color:gray;margin-top:0;">Version {version_text}</p>
+            <p>
+                <b>nibterm</b> is a serial and MQTT terminal designed for IoT device development
+                and debugging. It lets you connect to embedded hardware over a serial port
+                or an MQTT broker, capture live data, and immediately visualise it — without
+                writing any glue code.
+            </p>
+            <h3>Key features</h3>
+            <ul>
+                <li><b>Serial terminal</b> — Send commands and view raw output. Supports
+                    configurable baud rate, data bits, parity, and stop bits.</li>
+                <li><b>MQTT monitor</b> — Browse topics, inspect payloads, and extract
+                    variables from any connected broker.</li>
+                <li><b>Flexible parsers</b> — Extract numeric variables from incoming data
+                    using CSV columns, JSON paths, or per-variable regular expressions.</li>
+                <li><b>Transforms</b> — Combine and convert variables with mathematical
+                    formulas (e.g. unit conversions, sensor fusions).</li>
+                <li><b>Live dashboard</b> — Plot variables as time series or XY graphs.
+                    Multiple plot windows can be tiled or cascaded.</li>
+                <li><b>Command presets</b> — Load YAML files that add labelled buttons to
+                    the toolbar, with optional parameters and flag toggles, for fast
+                    device interaction.</li>
+            </ul>
+            <p style="color:gray;font-size:small;">
+                Built with Python and PySide6.
+            </p>
+        """)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dlg.accept)
+
+        layout = QVBoxLayout(dlg)
+        layout.addWidget(browser)
+        layout.addWidget(buttons)
+
+        dlg.exec()
 
     def _connection_status_text(self) -> str:
         s = self._serial_settings

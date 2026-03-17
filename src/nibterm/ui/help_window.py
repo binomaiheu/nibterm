@@ -38,7 +38,7 @@ def _help_content() -> list[tuple[str, str]]:
             """
             <h1>Serial interface</h1>
             <p>Connect to a serial port (e.g. USB-UART) to send and receive text. The app can parse incoming
-            lines as <b>CSV</b> or <b>JSON</b> and extract variables for plotting.</p>
+            lines as <b>CSV</b>, <b>JSON</b>, or <b>Regex</b> and extract variables for plotting.</p>
             <h2>Connecting</h2>
             <ul>
                 <li>Use <b>Serial → Connect</b> (or the connection toolbar) to open the port.</li>
@@ -50,12 +50,16 @@ def _help_content() -> list[tuple[str, str]]:
                 <li><b>CSV</b> — Comma-separated (or custom delimiter) columns. Set the delimiter if needed.</li>
                 <li><b>JSON</b> — Each line is parsed as JSON. You can set an optional <b>JSON prefix</b> (e.g. <code>Payload: </code>)
                 so lines like <code>Payload: {"temp": 25.3}</code> are stripped and parsed correctly.</li>
+                <li><b>Regex</b> — Each variable gets its own Python regex pattern and capture group.
+                Use this when lines have a fixed but irregular format (see the <i>Regex parser</i> section for details).</li>
             </ul>
             <h2>Adding Serial variables</h2>
             <p>On the <b>Terminal</b> tab, expand <b>Plot variables</b> below the command bar:</p>
             <ul>
                 <li><b>CSV</b> — The last serial line is shown; click a column to add it as a variable (col0, col1, …).</li>
                 <li><b>JSON</b> — The last valid JSON line is shown (pretty-printed). Click a value to add it as a variable with that JSON path.</li>
+                <li><b>Regex</b> — Click <b>Add</b> to open the <i>Configure regex extraction</i> dialog. Enter your pattern,
+                choose a capture group, and confirm. Double-click an existing row to edit its pattern.</li>
             </ul>
             <p>You can also use <b>Add</b> / <b>Remove</b> / <b>Clear all</b> in that panel. Variable names can be edited in the table;
             rename in the Variables dialog (Manage variables) or in the Serial plot variables table.</p>
@@ -82,6 +86,103 @@ def _help_content() -> list[tuple[str, str]]:
             <h2>Multiple topics</h2>
             <p>You can add variables from different topics. Each variable is tied to one topic and one extraction
             (JSON path or CSV column). Transforms can combine Serial and MQTT variables.</p>
+            """,
+        ),
+        (
+            "Regex parser",
+            """
+            <h1>Regex parser</h1>
+            <p>The <b>Regex</b> parser lets each variable define its own Python regular expression to extract
+            a numeric value from any incoming serial line. This is ideal for devices that send human-readable
+            or mixed-format lines where CSV and JSON do not apply.</p>
+
+            <h2>How it works</h2>
+            <p>For each variable you define a <b>pattern</b> and a <b>capture group</b> number:</p>
+            <ul>
+                <li>The pattern is searched across the entire line with <code>re.search()</code> — it does not have to match from the start.</li>
+                <li>The <b>capture group</b> selects which part of the match to extract:
+                    <ul>
+                        <li><b>0</b> — the entire match (useful when the pattern itself is the value).</li>
+                        <li><b>1, 2, …</b> — the corresponding <code>(…)</code> group in your pattern.</li>
+                    </ul>
+                </li>
+                <li>The extracted text is converted to a <code>float</code>. If the line does not match, or the
+                value is not numeric, the variable keeps its previous value.</li>
+            </ul>
+
+            <h2>Configuring a variable</h2>
+            <p>Click <b>Add</b> in the <i>Plot variables</i> panel (with Regex mode active) to open the
+            <b>Configure regex extraction</b> dialog:</p>
+            <ul>
+                <li><b>Test line</b> — pre-filled with the last received serial line. You can also type or paste
+                any sample line to try patterns before committing.</li>
+                <li><b>Pattern</b> — your Python regex. The dialog shows a live preview as you type.</li>
+                <li><b>Capture group</b> — spin box selecting which group to read (0 = entire match).</li>
+                <li><b>Extracted value</b> — live feedback: green = numeric value found, orange = match found but
+                not numeric, red = no match or invalid pattern.</li>
+            </ul>
+            <p>Double-click an existing regex variable row to reopen the dialog and edit its pattern.</p>
+
+            <h2>Examples</h2>
+
+            <h3>Simple text-string matching (presence / state)</h3>
+            <p>Line: <code>STATUS: OK  uptime=1234</code></p>
+            <p>To detect whether <code>OK</code> appears and turn it into a 1:</p>
+            <pre>Pattern: OK
+Capture group: 0   →  extracted text "OK" (not numeric — use a group instead)</pre>
+            <p>Better approach — wrap a digit that signals the state:</p>
+            <pre>Line:    STATUS: OK  uptime=1234
+Pattern: uptime=([0-9]+)
+Group:   1   →  1234.0</pre>
+            <p>Or match a keyword and map it via a transform (e.g. variable <code>ok_raw</code> always = 1
+            when the line matches, else no update — useful as a heartbeat):</p>
+            <pre>Pattern: (OK)
+Group:   0   →  no numeric output (orange warning in the dialog)
+Use group 1 of a numeric suffix instead, e.g.:
+Pattern: OK\s+uptime=(\d+)
+Group:   1   →  1234.0</pre>
+
+            <h3>Extracting a single number after a label</h3>
+            <p>Line: <code>temp: 23.7 hum: 58.1</code></p>
+            <pre>Variable "temperature":
+  Pattern: temp:\s*([\d.]+)
+  Group:   1   →  23.7
+
+Variable "humidity":
+  Pattern: hum:\s*([\d.]+)
+  Group:   1   →  58.1</pre>
+
+            <h3>Extracting a number with a sign or scientific notation</h3>
+            <p>Line: <code>accel=-0.981 gyro=1.23e-4</code></p>
+            <pre>Variable "accel":
+  Pattern: accel=([+-]?[\d.]+)
+  Group:   1   →  -0.981
+
+Variable "gyro":
+  Pattern: gyro=([+-]?[\d.eE+-]+)
+  Group:   1   →  1.23e-4  →  0.000123</pre>
+
+            <h3>Matching anywhere in a noisy line</h3>
+            <p>Line: <code>[DBG] sensor#3 val=42 ok</code></p>
+            <pre>Pattern: val=(\d+)
+Group:   1   →  42.0
+(re.search finds the match even with surrounding noise)</pre>
+
+            <h3>Using group 0 (entire match is the number)</h3>
+            <p>Line: <code>1013.25</code> (bare number, nothing else)</p>
+            <pre>Pattern: [\d.]+
+Group:   0   →  1013.25</pre>
+
+            <h2>Tips</h2>
+            <ul>
+                <li>Use <code>[\d.]+</code> for simple decimals, <code>[+-]?[\d.eE+-]+</code> for signed/scientific.</li>
+                <li>Always put the number part in a capture group (<code>(…)</code>) and set group ≥ 1 to avoid
+                accidentally matching label text.</li>
+                <li>Each variable has its own independent pattern — you can mix CSV/JSON-sourced variables
+                with Regex variables via <b>Transforms</b>.</li>
+                <li>The test line in the dialog is editable: paste a representative line from your device's
+                actual output to verify your pattern before adding the variable.</li>
+            </ul>
             """,
         ),
         (
@@ -161,59 +262,157 @@ def _help_content() -> list[tuple[str, str]]:
             "Command presets",
             """
             <h1>Command presets</h1>
-            <p>Command presets let you load a set of labeled commands (e.g. for a specific device) and run them from the
-            <b>Commands</b> toolbar on the right. Each preset has a <b>name</b> and a list of <b>commands</b>. You can
-            load a preset via the toolbar or <b>Serial</b> (or Commands) menu.</p>
-            <h2>Preset and command descriptions</h2>
-            <p>The preset is identified by its <b>name</b> in the YAML. Each command can have a <b>description</b>;
-            it is shown as a tooltip on the command button in the toolbar.</p>
-            <h2>YAML format</h2>
-            <p>Presets are YAML files with this structure:</p>
+            <p>Command presets let you load a set of labeled buttons (e.g. for a specific device) into the
+            <b>Commands</b> toolbar on the right side of the Terminal tab. Each button sends a command string
+            over the serial port when clicked. Presets are YAML files you load via <b>Serial → Load preset…</b>
+            or the toolbar header button.</p>
+
+            <h2>Top-level YAML structure</h2>
             <ul>
-                <li><b>name</b> — Preset name (string, required).</li>
-                <li><b>commands</b> — List of command entries (required).</li>
+                <li><b>name</b> (string, required) — Displayed in the toolbar header.</li>
+                <li><b>commands</b> (list, required) — One entry per button.</li>
             </ul>
-            <p>Each command entry can have:</p>
+
+            <h2>Command entry fields</h2>
+
+            <h3>label <span style="font-weight:normal;color:gray">(string, required)</span></h3>
+            <p>Text shown on the button in the toolbar. Keep it short.</p>
+
+            <h3>command <span style="font-weight:normal;color:gray">(string, required)</span></h3>
+            <p>The string sent over the serial port when the button is clicked. Use <code>\\n</code> to send
+            a newline (most devices need one to terminate a command). Placeholders in curly braces
+            (<code>{name}</code>) are filled in from <b>params</b> at runtime.</p>
+
+            <h3>description <span style="font-weight:normal;color:gray">(string, optional)</span></h3>
+            <p>Shown as a tooltip when you hover the button. Use it to describe what the command does,
+            expected response, or any important notes.</p>
+
+            <h3>color <span style="font-weight:normal;color:gray">(string, optional)</span></h3>
+            <p>Background color for the button. Accepts any CSS color value: named colors (<code>lightblue</code>),
+            hex (<code>#e3f2fd</code>), or RGB (<code>rgb(200,230,255)</code>). Useful for grouping related
+            commands visually.</p>
+
+            <h3>params <span style="font-weight:normal;color:gray">(list, optional)</span></h3>
+            <p>Defines text-input fields that appear below the button. Each entry has:</p>
             <ul>
-                <li><b>label</b> — Button label in the toolbar (required).</li>
-                <li><b>command</b> — The command string sent when you click the button (required). It can contain
-                placeholders like <code>{param_name}</code> that are filled from the parameter inputs.</li>
-                <li><b>color</b> — Optional button background color (e.g. <code>#e3f2fd</code>).</li>
-                <li><b>description</b> — Optional tooltip for the command button.</li>
-                <li><b>params</b> — Optional list of parameters. Each param has: <b>name</b> (used in the command template),
-                optional <b>label</b>, <b>default</b>, and <b>description</b>. The UI shows a line edit per param; values
-                are substituted into the command string.</li>
-                <li><b>options</b> — Optional list of flags. Each option has: <b>flag</b> (e.g. <code>-s</code> or
-                <code>--timeout</code>), optional <b>label</b>, <b>type</b> (<code>bool</code> or <code>value</code>),
-                optional <b>default</b>, and optional <b>description</b>. In the UI, boolean options are checkboxes;
-                value options are a checkbox plus a value field. When you run the command, only enabled options are
-                appended (e.g. <code>read -s</code> or <code>read --timeout 5</code>).</li>
+                <li><b>name</b> (required) — Identifier used as the placeholder in the command string
+                (e.g. <code>name: duty</code> → placeholder <code>{duty}</code>).</li>
+                <li><b>label</b> (optional) — Human-readable label shown next to the input field.
+                Defaults to the <code>name</code> if omitted.</li>
+                <li><b>default</b> (optional) — Pre-filled value when the preset is loaded.
+                Always treated as a string; numeric values are coerced automatically.</li>
+                <li><b>description</b> (optional) — Tooltip shown on the input field.</li>
             </ul>
-            <h3>Example YAML</h3>
-            <pre>name: my-device
+            <p>When you click the button, each <code>{placeholder}</code> in the command string is replaced
+            with the current content of its input field. If any required field is empty the button is
+            disabled until a value is provided. Parameter values are remembered per preset across sessions.</p>
+
+            <h3>options <span style="font-weight:normal;color:gray">(list, optional)</span></h3>
+            <p>Defines toggleable flags appended to the command. Each entry has:</p>
+            <ul>
+                <li><b>flag</b> (required) — The flag text appended to the command when enabled
+                (e.g. <code>-s</code>, <code>--verbose</code>).</li>
+                <li><b>label</b> (optional) — Text next to the checkbox. Defaults to <code>flag</code>.</li>
+                <li><b>type</b> (optional, <code>bool</code> or <code>value</code>) —
+                    <ul>
+                        <li><code>bool</code> (default) — A single checkbox. When checked, the flag is appended
+                        as-is (e.g. <code>read -s</code>).</li>
+                        <li><code>value</code> — A checkbox plus a text field. When checked, the flag and the
+                        field value are appended (e.g. <code>read --timeout 5</code>).</li>
+                    </ul>
+                </li>
+                <li><b>default</b> (optional) — For <code>bool</code>: <code>true</code>/<code>false</code>.
+                For <code>value</code>: the default text in the value field.</li>
+                <li><b>description</b> (optional) — Tooltip on the checkbox.</li>
+            </ul>
+            <p>Only <em>enabled</em> (checked) options are appended to the command. Options are appended
+            in the order they are defined. If the command string ends with <code>\\n</code>, options are
+            inserted before the trailing newline.</p>
+
+            <h2>Complete example</h2>
+            <pre>name: my-sensor-board
 commands:
+
+  # Simple ping — no parameters, just sends "ping" followed by newline
   - label: ping
     command: "ping\\n"
-    description: Connectivity check.
-  - label: read
+    color: "#e8f5e9"
+    description: >
+      Send a connectivity ping. Device replies "pong" if alive.
+
+  # Read sensor — a bool flag controls whether the result is also stored
+  - label: read sensor
     command: "read\\n"
-    description: Read with optional submit.
+    color: "#e3f2fd"
+    description: Read latest sensor value. Use 'Submit' to persist it on the device.
     options:
       - flag: "-s"
-        label: Submit
+        label: Submit (persist)
         type: bool
         default: false
-  - label: set pwm
+        description: Append -s to store the reading in non-volatile memory.
+      - flag: "--verbose"
+        label: Verbose output
+        type: bool
+        default: false
+        description: Request full diagnostic output.
+
+  # Set LED brightness — a numeric parameter
+  - label: set LED
+    command: "led {brightness}\\n"
+    color: "#fff9c4"
+    description: Set LED brightness (0–255).
+    params:
+      - name: brightness
+        label: Brightness (0-255)
+        default: "128"
+        description: Integer 0 (off) to 255 (full).
+
+  # PWM control — two parameters and an optional frequency flag
+  - label: set PWM
     command: "pwm {duty} {freq}\\n"
+    description: Set PWM duty cycle and base frequency, with optional prescaler flag.
     params:
       - name: duty
-        label: Duty (%)
+        label: Duty cycle (%)
         default: "50"
+        description: Duty cycle as a percentage (0–100).
       - name: freq
-        label: Freq (Hz)
-        default: "1000"</pre>
-            <p>In the YAML file, <code>\\n</code> in the command string sends a newline after the command.</p>
-            <p>Parameter and option values are remembered per preset in the application settings.</p>
+        label: Frequency (Hz)
+        default: "1000"
+        description: Base PWM frequency in Hz.
+    options:
+      - flag: "--prescaler"
+        label: Prescaler
+        type: value
+        default: "8"
+        description: >
+          Clock prescaler value. When checked, '--prescaler N' is appended
+          (e.g. 'pwm 50 1000 --prescaler 8').
+
+  # Firmware update — danger color, value-type option for target address
+  - label: flash
+    command: "flash {file}\\n"
+    color: "#ffccbc"
+    description: Upload firmware file to the device.
+    params:
+      - name: file
+        label: Firmware path
+        default: "firmware.bin"
+    options:
+      - flag: "--addr"
+        label: Start address
+        type: value
+        default: "0x08000000"
+        description: Flash start address (hex). Omit to use device default.</pre>
+
+            <p><b>Notes:</b></p>
+            <ul>
+                <li><code>\\n</code> in the command string sends a newline; most serial devices require it.</li>
+                <li>Parameter and option values are saved per preset in application settings and restored
+                the next time the preset is loaded.</li>
+                <li>The toolbar width auto-adjusts to the longest button label in the preset.</li>
+            </ul>
             """,
         ),
     ]
