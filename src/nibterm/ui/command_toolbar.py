@@ -115,8 +115,6 @@ class CommandToolbar(QToolBar):
 
         for command in self._preset.commands:
             action = QAction(command.label, self)
-            if command.color:
-                action.setData({"color": command.color})
             action.triggered.connect(
                 lambda _checked=False, cmd=command.command, label=command.label: self._emit_command(cmd, label)
             )
@@ -133,10 +131,6 @@ class CommandToolbar(QToolBar):
         for button in self.findChildren(QToolButton):
             action = button.defaultAction()
             if action in self._command_actions:
-                if isinstance(action.data(), dict):
-                    color = action.data().get("color")
-                    if color:
-                        button.setStyleSheet(f"background-color: {color};")
                 button.setFixedWidth(padded)
 
     def _add_command_item(self, action: QAction, command) -> None:
@@ -150,6 +144,12 @@ class CommandToolbar(QToolBar):
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         button.setMinimumHeight(26)
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        if command.color:
+            button.setStyleSheet(
+                f"QToolButton {{ background-color: {command.color}; }}"
+                f"QToolButton:hover {{ background-color: {command.color}; }}"
+                f"QToolButton:focus {{ background-color: {command.color}; }}"
+            )
         if command.description:
             button.setToolTip(command.description)
         header_layout.addWidget(button)

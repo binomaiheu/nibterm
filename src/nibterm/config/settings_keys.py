@@ -71,3 +71,10 @@ SERIAL_PARSER_JSON_PREFIX = "serial_parser/json_prefix"
 # -- commands --------------------------------------------------------------
 COMMANDS_LAST_PATH = "commands/last_path"
 COMMANDS_PARAMS_PREFIX = "commands/params/{preset}/{label}/{param}"
+
+# -- console ---------------------------------------------------------------
+CONSOLE_MAX_BLOCK_COUNT = "console/max_block_count"
+
+# -- command history -------------------------------------------------------
+HISTORY_ENTRIES = "history/entries"
+HISTORY_MAX_LENGTH = "history/max_length"

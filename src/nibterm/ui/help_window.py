@@ -66,6 +66,51 @@ def _help_content() -> list[tuple[str, str]]:
             """,
         ),
         (
+            "Terminal features",
+            """
+            <h1>Terminal features</h1>
+
+            <h2>Command history</h2>
+            <p>Every command you type in the input field and send is saved to a history that
+            persists between sessions.</p>
+            <ul>
+                <li><b>Up / Down arrows</b> — Navigate through previous commands.</li>
+                <li><b>Ctrl+R</b> — Reverse incremental search. Start typing to filter
+                history entries. The input field turns <span style="background:#fff9c4;">light yellow</span>
+                to indicate search mode.</li>
+                <li><b>Tab</b> — Accept the current search match and edit it before sending.</li>
+                <li><b>Enter</b> — Accept the match and send it immediately.</li>
+                <li><b>Escape</b> — Cancel the search and restore the previous input.</li>
+                <li><b>Ctrl+R again</b> — Jump to the next (older) match.</li>
+            </ul>
+            <p>The maximum number of history entries is configurable in
+            <b>Serial &rarr; Configure &rarr; Appearance &rarr; Terminal &rarr; Command history length</b>
+            (default: 500).</p>
+            <p>You can save the entire command history to a text file via
+            <b>Serial &rarr; Save command history...</b></p>
+
+            <h2>Terminal buffer</h2>
+            <p>The console keeps a configurable number of lines in its scroll-back buffer.
+            The current and maximum line count is shown in the status bar as
+            <b>Lines: current/max</b>.</p>
+            <p>Change the buffer size in
+            <b>Serial &rarr; Configure &rarr; Appearance &rarr; Terminal &rarr; Buffer size (lines)</b>
+            (default: 5000). The change takes effect immediately.</p>
+
+            <h2>Scroll lock</h2>
+            <p>By default the terminal auto-scrolls to the bottom when new data arrives.
+            To freeze the view and read older output:</p>
+            <ul>
+                <li><b>Scroll up</b> with the mouse wheel or scrollbar &mdash; scroll lock
+                activates automatically. The status bar shows
+                <span style="color:#c62828;font-weight:bold;">Scroll: LOCKED</span>.</li>
+                <li><b>Click the status bar button</b> to toggle scroll lock on or off manually.</li>
+                <li><b>Scroll to the bottom</b> or click the button again to resume auto-scrolling.
+                The indicator returns to <b>Scroll: Auto</b>.</li>
+            </ul>
+            """,
+        ),
+        (
             "MQTT interface",
             """
             <h1>MQTT interface</h1>

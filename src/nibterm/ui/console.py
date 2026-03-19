@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QDateTime, Qt
+from PySide6.QtCore import QDateTime, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit
 
@@ -8,6 +8,9 @@ from ..config import defaults
 
 
 class ConsoleWidget(QPlainTextEdit):
+    line_count_changed = Signal(int, int)
+    scroll_lock_changed = Signal(bool)
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setReadOnly(True)
@@ -17,11 +20,15 @@ class ConsoleWidget(QPlainTextEdit):
         self._line_buffer = ""
         self._display_at_line_start = True  # for timestamp at start of each line
         self._default_text_color = QColor("black")
+        self._scroll_locked = False
+        self._programmatic_scroll = False
+        self.verticalScrollBar().valueChanged.connect(self._on_scrollbar_moved)
 
     def set_max_block_count(self, count: int) -> None:
         """Set the maximum number of lines kept in the console buffer."""
         self._max_block_count = count
         self.document().setMaximumBlockCount(count)
+        self._emit_line_count()
 
     def set_timestamp_color(self, color: str) -> None:
         """Set the color used for timestamp prefixes."""
@@ -31,6 +38,7 @@ class ConsoleWidget(QPlainTextEdit):
         super().clear()
         self._line_buffer = ""
         self._display_at_line_start = True
+        self._emit_line_count()
 
     def set_appearance(
         self,
@@ -61,6 +69,9 @@ class ConsoleWidget(QPlainTextEdit):
         else:
             self._line_buffer = ""
 
+        # Save scroll position before modifying content when locked.
+        saved_scroll = self.verticalScrollBar().value() if self._scroll_locked else None
+
         # Display incoming text immediately (no buffering) so characters show up
         # as they arrive; only completed lines are returned for logging/plotting.
         # Normalize \r\n and \r to \n so one newline from device doesn't become two.
@@ -82,13 +93,23 @@ class ConsoleWidget(QPlainTextEdit):
                 self._display_at_line_start = True
             elif segment == "":
                 self._display_at_line_start = True
-        self.setTextCursor(cursor)
+
+        # Restore scroll position when locked to prevent Qt's auto-scroll
+        # that happens when setTextCursor moves the viewport to the cursor.
+        if saved_scroll is not None:
+            self._programmatic_scroll = True
+            self.setTextCursor(cursor)
+            self.verticalScrollBar().setValue(saved_scroll)
+            self._programmatic_scroll = False
+        else:
+            self.setTextCursor(cursor)
 
         for line in lines:
             completed_lines.append(line.rstrip("\r\n"))
 
         if text or completed_lines:
             self._scroll_to_bottom()
+            self._emit_line_count()
         return completed_lines
 
     def append_text(self, text: str) -> None:
@@ -97,19 +118,26 @@ class ConsoleWidget(QPlainTextEdit):
     def append_text_colored(self, text: str, color: str | None) -> None:
         if not text:
             return
-        if color is None:
-            self.appendPlainText(text)
-        else:
-            cursor = self.textCursor()
-            cursor.movePosition(QTextCursor.MoveOperation.End)
+        saved_scroll = self.verticalScrollBar().value() if self._scroll_locked else None
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        if color is not None:
             fmt = QTextCharFormat()
             fmt.setForeground(QColor(color))
             cursor.setCharFormat(fmt)
-            cursor.insertText(text)
-            cursor.insertBlock()
+        cursor.insertText(text)
+        cursor.insertBlock()
+        if color is not None:
             cursor.setCharFormat(QTextCharFormat())
+        if saved_scroll is not None:
+            self._programmatic_scroll = True
+            self.setTextCursor(cursor)
+            self.verticalScrollBar().setValue(saved_scroll)
+            self._programmatic_scroll = False
+        else:
             self.setTextCursor(cursor)
         self._scroll_to_bottom()
+        self._emit_line_count()
 
     def append_status_message(
         self,
@@ -119,6 +147,7 @@ class ConsoleWidget(QPlainTextEdit):
     ) -> None:
         if not message:
             return
+        saved_scroll = self.verticalScrollBar().value() if self._scroll_locked else None
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         if prefix_timestamp:
@@ -130,8 +159,15 @@ class ConsoleWidget(QPlainTextEdit):
         cursor.insertText(message)
         cursor.insertBlock()
         cursor.setCharFormat(QTextCharFormat())
-        self.setTextCursor(cursor)
+        if saved_scroll is not None:
+            self._programmatic_scroll = True
+            self.setTextCursor(cursor)
+            self.verticalScrollBar().setValue(saved_scroll)
+            self._programmatic_scroll = False
+        else:
+            self.setTextCursor(cursor)
         self._scroll_to_bottom()
+        self._emit_line_count()
 
     def _insert_timestamp(self, cursor: QTextCursor, ts: str) -> None:
         ts_format = QTextCharFormat()
@@ -141,5 +177,43 @@ class ConsoleWidget(QPlainTextEdit):
         cursor.setCharFormat(QTextCharFormat())
 
     def _scroll_to_bottom(self) -> None:
+        if self._scroll_locked:
+            return
+        self._programmatic_scroll = True
         scrollbar = self.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
+        self._programmatic_scroll = False
+
+    def _scroll_to_bottom_force(self) -> None:
+        """Scroll to bottom regardless of lock state."""
+        self._programmatic_scroll = True
+        scrollbar = self.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+        self._programmatic_scroll = False
+
+    def _on_scrollbar_moved(self, value: int) -> None:
+        if self._programmatic_scroll:
+            return
+        sb = self.verticalScrollBar()
+        at_bottom = value >= sb.maximum() - 5
+        was_locked = self._scroll_locked
+        self._scroll_locked = not at_bottom
+        if was_locked != self._scroll_locked:
+            self.scroll_lock_changed.emit(self._scroll_locked)
+
+    def set_scroll_locked(self, locked: bool) -> None:
+        was_locked = self._scroll_locked
+        self._scroll_locked = locked
+        if was_locked != self._scroll_locked:
+            self.scroll_lock_changed.emit(self._scroll_locked)
+        if not locked:
+            self._scroll_to_bottom_force()
+
+    @property
+    def is_scroll_locked(self) -> bool:
+        return self._scroll_locked
+
+    def _emit_line_count(self) -> None:
+        self.line_count_changed.emit(
+            self.document().blockCount(), self._max_block_count
+        )

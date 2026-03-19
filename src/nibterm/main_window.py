@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -28,6 +27,7 @@ from PySide6.QtWidgets import (
     QTextBrowser,
 )
 
+from .config import defaults
 from .config import settings_keys as SK
 from .config.migration import migrate_settings
 from .config.plot_config import PlotConfig
@@ -47,6 +47,7 @@ from .ui.mqtt_settings_dialog import MQTTSettingsDialog
 from .ui.serial_plot_panel import SerialPlotPanel
 from .ui.variable_dialog import VariablesDialog
 from .ui.help_window import HelpWindow
+from .ui.history_line_edit import CommandHistoryLineEdit
 from .version import __version__
 
 # Resolve static dir: repo root when running from source, or package static if present
@@ -108,9 +109,14 @@ class MainWindow(QMainWindow):
             self._appearance_settings.background_color,
             self._appearance_settings.text_color,
         )
+        max_blocks = self._settings.value(
+            SK.CONSOLE_MAX_BLOCK_COUNT, defaults.DEFAULT_CONSOLE_MAX_BLOCK_COUNT, int
+        )
+        self._console.set_max_block_count(max_blocks)
 
-        self._input_line = QLineEdit()
-        self._input_line.setPlaceholderText("Type and press Enter to send")
+        self._input_line = CommandHistoryLineEdit()
+        self._input_line.setPlaceholderText("Type and press Enter to send  |  \u2191\u2193 history  |  Ctrl+R search")
+        self._input_line.load_from_settings(self._settings)
         self._send_button = QPushButton("Send")
         self._send_button.clicked.connect(self._send_input)
         self._input_line.returnPressed.connect(self._send_input_if_enabled)
@@ -186,6 +192,20 @@ class MainWindow(QMainWindow):
         self._status.addWidget(QLabel(" | "))
         self._status_log_label = QLabel("")
         self._status.addWidget(self._status_log_label)
+        self._status.addWidget(QLabel(" | "))
+        self._status_line_count_label = QLabel("")
+        self._status.addWidget(self._status_line_count_label)
+        self._console.line_count_changed.connect(self._on_line_count_changed)
+
+        self._scroll_lock_button = QPushButton("Scroll: Auto")
+        self._scroll_lock_button.setFlat(True)
+        self._scroll_lock_button.setCheckable(True)
+        self._scroll_lock_button.setToolTip("Click to toggle scroll lock")
+        self._scroll_lock_button.setStyleSheet("padding: 0 6px;")
+        self._scroll_lock_button.clicked.connect(self._toggle_scroll_lock)
+        self._status.addPermanentWidget(self._scroll_lock_button)
+        self._console.scroll_lock_changed.connect(self._on_scroll_lock_changed)
+
         self._reconnecting = False
         self._set_status_state("disconnected")
         self._set_mqtt_status_state("disconnected")
@@ -232,9 +252,13 @@ class MainWindow(QMainWindow):
         serial_menu.addAction(self._action_settings)
         serial_menu.addAction(self._action_parser)
         serial_menu.addAction(self._action_clear)
+        self._action_save_history = QAction("Save command history...", self)
+        self._action_save_history.triggered.connect(self._save_command_history)
         serial_menu.addSeparator()
         serial_menu.addAction(self._action_log_start)
         serial_menu.addAction(self._action_log_stop)
+        serial_menu.addSeparator()
+        serial_menu.addAction(self._action_save_history)
 
         mqtt_menu = menu.addMenu("MQTT")
         self._action_mqtt_settings = QAction("Configure...", self)
@@ -353,6 +377,17 @@ class MainWindow(QMainWindow):
         self._appearance_settings = appearance_settings
         self._apply_appearance()
         self._port_manager.set_auto_reconnect(self._serial_settings.auto_reconnect)
+
+        max_blocks = self._settings.value(
+            SK.CONSOLE_MAX_BLOCK_COUNT, defaults.DEFAULT_CONSOLE_MAX_BLOCK_COUNT, int
+        )
+        self._console.set_max_block_count(max_blocks)
+
+        history_max = self._settings.value(
+            SK.HISTORY_MAX_LENGTH, defaults.DEFAULT_HISTORY_MAX_LENGTH, int
+        )
+        self._input_line.set_max_length(history_max)
+
         if self._port_manager.is_open():
             self._port_manager.close()
             self._connect_serial()
@@ -517,7 +552,7 @@ class MainWindow(QMainWindow):
 
         dlg = QDialog(self)
         dlg.setWindowTitle("About nibterm")
-        dlg.setMinimumWidth(520)
+        dlg.setMinimumSize(600, 480)
 
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
@@ -595,6 +630,7 @@ class MainWindow(QMainWindow):
         raw = self._input_line.text()
         if not raw:
             return
+        self._input_line.add_entry(raw)
         payload = f"{raw}{self._serial_settings.line_ending}"
         self._port_manager.write(payload.encode("utf-8"))
         if self._serial_settings.local_echo:
@@ -650,6 +686,24 @@ class MainWindow(QMainWindow):
         self._action_log_stop.setEnabled(False)
         self._status_log_label.setText("Logging stopped")
         self._log_path = None
+
+    def _save_command_history(self) -> None:
+        history = self._input_line.history
+        if not history:
+            QMessageBox.information(self, "Command History", "No command history to save.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save command history",
+            self._settings.value("history/last_save_path", "", str),
+            "Text files (*.txt);;All files (*)",
+        )
+        if not path:
+            return
+        self._settings.setValue("history/last_save_path", path)
+        with open(path, "w", encoding="utf-8") as f:
+            for entry in history:
+                f.write(entry + "\n")
 
     def _update_log_status(self) -> None:
         if not self._file_logger.is_active() or not self._log_path:
@@ -711,12 +765,34 @@ class MainWindow(QMainWindow):
         if self._dashboard_window:
             self._dashboard_window.cascade_plots()
 
+    @Slot(int, int)
+    def _on_line_count_changed(self, current: int, maximum: int) -> None:
+        self._status_line_count_label.setText(f"Lines: {current}/{maximum}")
+
+    @Slot(bool)
+    def _on_scroll_lock_changed(self, locked: bool) -> None:
+        self._scroll_lock_button.setChecked(locked)
+        if locked:
+            self._scroll_lock_button.setText("Scroll: LOCKED")
+            self._scroll_lock_button.setStyleSheet(
+                "padding: 0 6px; color: #c62828; font-weight: bold;"
+            )
+        else:
+            self._scroll_lock_button.setText("Scroll: Auto")
+            self._scroll_lock_button.setStyleSheet("padding: 0 6px;")
+
+    @Slot()
+    def _toggle_scroll_lock(self) -> None:
+        is_locked = self._scroll_lock_button.isChecked()
+        self._console.set_scroll_locked(is_locked)
+
     def _save_settings(self) -> None:
         self._serial_settings.to_qsettings(self._settings)
         self._appearance_settings.to_qsettings(self._settings)
         self._mqtt_settings.to_qsettings(self._settings)
         self._plot_config.to_qsettings(self._settings)
         self._variable_manager.save()
+        self._input_line.save_to_settings(self._settings)
         self._settings.setValue(SK.WINDOW_GEOMETRY, self.saveGeometry())
         self._settings.setValue(SK.WINDOW_STATE, self.saveState())
         self._settings.setValue("view/tab", self._tabs.currentIndex())
