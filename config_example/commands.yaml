@@ -7,7 +7,7 @@ commands:
   - label: status
     command: "status\n"
     description: Request device status.
-    color: "#e3f2fd"
+    color: "#eeee00"
   - label: set pwm
     command: "pwm {duty} {freq}\n"
     description: Configure PWM output.

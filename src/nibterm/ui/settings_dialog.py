@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSettings, Signal
 from PySide6.QtGui import QColor, QFont, QIntValidator
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 from PySide6.QtWidgets import (
@@ -21,6 +21,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..config import defaults
+from ..config import settings_keys as SK
 from ..serial.settings import AppearanceSettings, SerialSettings
 
 
@@ -100,8 +102,9 @@ class SettingsDialog(QDialog):
         self._populate_serial_options()
 
     def _build_appearance_tab(self) -> None:
-        layout = QFormLayout(self._appearance_tab)
+        tab_layout = QVBoxLayout(self._appearance_tab)
 
+        form = QFormLayout()
         self._font_combo = QFontComboBox(self)
         self._font_size = QSpinBox(self)
         self._font_size.setRange(6, 32)
@@ -118,22 +121,41 @@ class SettingsDialog(QDialog):
         )
         self._text_button.clicked.connect(lambda: self._choose_color("text"))
 
-        layout.addRow("Font", self._font_combo)
-        layout.addRow("Font size", self._font_size)
+        form.addRow("Font", self._font_combo)
+        form.addRow("Font size", self._font_size)
 
         background_row = QWidget(self)
         background_layout = QHBoxLayout(background_row)
         background_layout.setContentsMargins(0, 0, 0, 0)
         background_layout.addWidget(self._background_button)
         background_layout.addWidget(self._background_preview)
-        layout.addRow("Background", background_row)
+        form.addRow("Background", background_row)
 
         text_row = QWidget(self)
         text_layout = QHBoxLayout(text_row)
         text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.addWidget(self._text_button)
         text_layout.addWidget(self._text_preview)
-        layout.addRow("Text color", text_row)
+        form.addRow("Text color", text_row)
+
+        tab_layout.addLayout(form)
+
+        # Terminal group box
+        terminal_box = QGroupBox("Terminal")
+        terminal_form = QFormLayout(terminal_box)
+
+        self._buffer_size_spin = QSpinBox(self)
+        self._buffer_size_spin.setRange(100, 100_000)
+        self._buffer_size_spin.setSingleStep(1000)
+        terminal_form.addRow("Buffer size (lines)", self._buffer_size_spin)
+
+        self._history_max_spin = QSpinBox(self)
+        self._history_max_spin.setRange(10, 10_000)
+        self._history_max_spin.setSingleStep(50)
+        terminal_form.addRow("Command history length", self._history_max_spin)
+
+        tab_layout.addWidget(terminal_box)
+        tab_layout.addStretch(1)
 
     def _populate_serial_options(self) -> None:
         self._port_combo.clear()
@@ -233,6 +255,14 @@ class SettingsDialog(QDialog):
         self._font_size.setValue(appearance.font_size)
         self._update_color_previews()
 
+        qs = QSettings()
+        self._buffer_size_spin.setValue(
+            qs.value(SK.CONSOLE_MAX_BLOCK_COUNT, defaults.DEFAULT_CONSOLE_MAX_BLOCK_COUNT, int)
+        )
+        self._history_max_spin.setValue(
+            qs.value(SK.HISTORY_MAX_LENGTH, defaults.DEFAULT_HISTORY_MAX_LENGTH, int)
+        )
+
     def _select_combo_by_data(self, combo: QComboBox, value) -> None:
         idx = combo.findData(value)
         if idx >= 0:
@@ -268,6 +298,10 @@ class SettingsDialog(QDialog):
             background_color=self._appearance_settings.background_color,
             text_color=self._appearance_settings.text_color,
         )
+        qs = QSettings()
+        qs.setValue(SK.CONSOLE_MAX_BLOCK_COUNT, self._buffer_size_spin.value())
+        qs.setValue(SK.HISTORY_MAX_LENGTH, self._history_max_spin.value())
+
         self.settings_applied.emit(self._serial_settings, self._appearance_settings)
 
     def accept(self) -> None:
