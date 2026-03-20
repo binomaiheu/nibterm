@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="static/nibterm.png" alt="nibterm logo" width="500">
+</p>
+
 # nibTerm
 
-PySide6 serial terminal for IoT devices with logging, plotting, and command presets. 
+PySide6 serial terminal for IoT devices with logging, plotting, and command presets.
 
 I vibe-coded this as a test and because I was not happy with existing terminal applications for my IoT work. I needed something which allows to define buttons with parameters to interact with the firmware, has plotting functionality (for monitoring device sensors via the serial line) as well as auto-reconnect for when the IoT device sleeps & attaches/detaches the Serial line. 
 
@@ -55,7 +59,7 @@ it is also possible to compile the tool to a standalone executable. this is done
 
 
 ```
-pyinstaller --windowed --name nibterm --onefile run.py
+pyinstaller --windowed --name nibterm --onefile --icon=static/nibterm-icon.ico --add-data "static:static" run.py
 ```
 
 the exe will be in `dist`

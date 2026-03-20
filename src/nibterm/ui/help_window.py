@@ -1,6 +1,8 @@
 """Help window with navigation and HTML content."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -13,13 +15,19 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+# Resolve static dir
+_STATIC_DIR = Path(__file__).resolve().parent.parent.parent.parent / "static"
+if not _STATIC_DIR.exists():
+    _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
 
 def _help_content() -> list[tuple[str, str]]:
     """Return list of (section_title, html_content) for the help viewer."""
     return [
         (
             "Welcome",
-            """
+            f"""
+            <p align="center"><img src="file:///{(_STATIC_DIR / 'nibterm.png').as_posix()}" width="400"></p>
             <h1>nibterm Help</h1>
             <p>nibterm is a serial and MQTT terminal for IoT devices. You can capture data from serial ports
             and MQTT brokers, define variables (CSV columns, JSON paths, or computed transforms), and plot them
@@ -135,7 +143,7 @@ def _help_content() -> list[tuple[str, str]]:
         ),
         (
             "Regex parser",
-            """
+            r"""
             <h1>Regex parser</h1>
             <p>The <b>Regex</b> parser lets each variable define its own Python regular expression to extract
             a numeric value from any incoming serial line. This is ideal for devices that send human-readable

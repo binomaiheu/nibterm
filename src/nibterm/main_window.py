@@ -79,6 +79,9 @@ class MainWindow(QMainWindow):
         QCoreApplication.setApplicationName("nibterm")
 
         self.setWindowTitle("nibterm - a vibe coded serial IoT device terminal")
+        icon_path = _STATIC_DIR / "nibterm-icon.png"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         self._settings = QSettings()
         migrate_settings(self._settings)
@@ -557,7 +560,10 @@ class MainWindow(QMainWindow):
         browser = QTextBrowser()
         browser.setOpenExternalLinks(True)
         browser.setFrameShape(browser.Shape.NoFrame)
+        logo_path = _STATIC_DIR / "nibterm.png"
+        logo_html = f'<p align="center"><img src="file:///{logo_path.as_posix()}" width="300"></p>' if logo_path.exists() else ""
         browser.setHtml(f"""
+            {logo_html}
             <h2 style="margin-bottom:4px;">nibterm</h2>
             <p style="color:gray;margin-top:0;">Version {version_text}</p>
             <p>
