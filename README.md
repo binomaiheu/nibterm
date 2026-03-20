@@ -2,28 +2,39 @@
   <img src="static/nibterm.png" alt="nibterm logo" width="500">
 </p>
 
-# nibTerm
+<p align="center">
+  <a href="https://github.com/binomaiheu/nibterm/releases/latest"><img src="https://img.shields.io/github/v/release/binomaiheu/nibterm?style=flat-square&color=blue" alt="GitHub Release"></a>
+  <img src="https://img.shields.io/badge/python-%3E%3D3.12-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.12+">
+  <img src="https://img.shields.io/badge/Qt-PySide6-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PySide6">
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square" alt="Platform">
+  <a href="https://github.com/binomaiheu/nibterm/stargazers"><img src="https://img.shields.io/github/stars/binomaiheu/nibterm?style=flat-square" alt="Stars"></a>
+  <a href="https://github.com/binomaiheu/nibterm/issues"><img src="https://img.shields.io/github/issues/binomaiheu/nibterm?style=flat-square" alt="Issues"></a>
+</p>
 
-PySide6 serial terminal for IoT devices with logging, plotting, and command presets.
+---
 
-I vibe-coded this as a test and because I was not happy with existing terminal applications for my IoT work. I needed something which allows to define buttons with parameters to interact with the firmware, has plotting functionality (for monitoring device sensors via the serial line) as well as auto-reconnect for when the IoT device sleeps & attaches/detaches the Serial line. 
+A **PySide6 serial & MQTT terminal** for IoT devices with logging, real-time plotting, and command presets.
 
-So this is my vibe-coded attempt to create something which ticks all those boxes. Screenshots of some version below. 
+I vibe-coded this as a test and because I was not happy with existing terminal applications for my IoT work. I needed something which allows to define buttons with parameters to interact with the firmware, has plotting functionality (for monitoring device sensors via the serial line) as well as auto-reconnect for when the IoT device sleeps & attaches/detaches the Serial line.
+
+So this is my vibe-coded attempt to create something which ticks all those boxes. Screenshots of some version below.
 
 <p align="center">
   <img src="static/terminal.png" alt="Terminal" width="400" style="display:inline-block;vertical-align:top;margin-right:10px;">
   <img src="static/dashboard.png" alt="Dashboard" width="400" style="display:inline-block;vertical-align:top;">
 </p>
 
-
 ## Features
 
-- Serial connection with configurable port settings
-- Local echo, send-on-enter, auto reconnect, timestamp prefix
+- **Serial terminal** — configurable port, baud rate, data/parity/stop bits, flow control
+- **MQTT monitor** — connect to brokers, browse topics, extract variables from payloads
+- **Flexible parsers** — CSV, JSON, or per-variable regex extraction
+- **Transforms** — computed variables from math expressions (unit conversions, sensor fusion)
+- **Live dashboard** — real-time time-series and XY plots via pyqtgraph
+- **Command presets** — YAML-defined buttons with parameters and flag toggles
+- Local echo, send-on-enter, auto-reconnect, timestamp prefix
 - Terminal theming (font and colors)
 - Log incoming data to file
-- Real-time plotting via pyqtgraph (CSV-like lines)
-- YAML command presets with configurable parameters that render as buttons in the UI
 
 ## Getting started
 
@@ -107,3 +118,8 @@ commands:
         description: PWM frequency in Hertz.
 ```
 
+---
+
+<p align="center">
+  Built with Python & PySide6 &bull; vibe-coded with <a href="https://claude.ai">Claude</a>
+</p>
