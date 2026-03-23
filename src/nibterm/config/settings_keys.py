@@ -20,6 +20,7 @@ SERIAL_SEND_ON_ENTER = "serial/send_on_enter"
 SERIAL_LINE_ENDING = "serial/line_ending"
 SERIAL_AUTO_RECONNECT = "serial/auto_reconnect"
 SERIAL_TIMESTAMP_PREFIX = "serial/timestamp_prefix"
+SERIAL_DTR_ON_CONNECT = "serial/dtr_on_connect"
 
 # -- appearance ------------------------------------------------------------
 APPEARANCE_FONT_FAMILY = "appearance/font_family"

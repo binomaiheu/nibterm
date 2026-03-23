@@ -28,6 +28,7 @@ class SerialSettings:
     line_ending: str = defaults.DEFAULT_LINE_ENDING
     auto_reconnect: bool = defaults.DEFAULT_AUTO_RECONNECT
     timestamp_prefix: bool = defaults.DEFAULT_TIMESTAMP_PREFIX
+    dtr_on_connect: bool = defaults.DEFAULT_DTR_ON_CONNECT
 
     def to_qsettings(self, settings: QSettings) -> None:
         settings.setValue(SK.SERIAL_PORT_NAME, self.port_name)
@@ -41,6 +42,7 @@ class SerialSettings:
         settings.setValue(SK.SERIAL_LINE_ENDING, self.line_ending)
         settings.setValue(SK.SERIAL_AUTO_RECONNECT, self.auto_reconnect)
         settings.setValue(SK.SERIAL_TIMESTAMP_PREFIX, self.timestamp_prefix)
+        settings.setValue(SK.SERIAL_DTR_ON_CONNECT, self.dtr_on_connect)
 
     @staticmethod
     def from_qsettings(settings: QSettings) -> "SerialSettings":
@@ -64,6 +66,7 @@ class SerialSettings:
             line_ending=settings.value(SK.SERIAL_LINE_ENDING, defaults.DEFAULT_LINE_ENDING, str),
             auto_reconnect=settings.value(SK.SERIAL_AUTO_RECONNECT, defaults.DEFAULT_AUTO_RECONNECT, bool),
             timestamp_prefix=settings.value(SK.SERIAL_TIMESTAMP_PREFIX, defaults.DEFAULT_TIMESTAMP_PREFIX, bool),
+            dtr_on_connect=settings.value(SK.SERIAL_DTR_ON_CONNECT, defaults.DEFAULT_DTR_ON_CONNECT, bool),
         )
 
 

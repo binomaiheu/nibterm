@@ -32,7 +32,7 @@ So this is my vibe-coded attempt to create something which ticks all those boxes
 - **Transforms** — computed variables from math expressions (unit conversions, sensor fusion)
 - **Live dashboard** — real-time time-series and XY plots via pyqtgraph
 - **Command presets** — YAML-defined buttons with parameters and flag toggles
-- Local echo, send-on-enter, auto-reconnect, timestamp prefix
+- Local echo, send-on-enter, auto-reconnect, timestamp prefix, DTR on connect
 - Terminal theming (font and colors)
 - Log incoming data to file
 
@@ -59,6 +59,12 @@ This should build the environment, probably in `.venv`, with the required python
 uv run nibterm
 ```
 
+Pass `-v` or `--verbose` to enable debug logging (useful for diagnosing serial port issues):
+
+```bash
+uv run nibterm -v
+```
+
 from the same folder. Or if you have activated the python environment instead, you can just run the tool as is. 
 
 ```bash
@@ -70,7 +76,7 @@ it is also possible to compile the tool to a standalone executable. this is done
 
 
 ```
-pyinstaller --windowed --name nibterm --onefile --icon=static/nibterm-icon.ico --add-data "static:static" run.py
+pyinstaller --windowed --name nibterm --onefile --icon=static/nibterm-icon.ico --add-data "static:static" --hidden-import PySide6.QtSerialPort run.py
 ```
 
 the exe will be in `dist`

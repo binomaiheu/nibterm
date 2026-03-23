@@ -79,6 +79,7 @@ class SettingsDialog(QDialog):
         self._send_on_enter = QCheckBox("Send on Enter")
         self._timestamp_prefix = QCheckBox("Prefix with timestamp")
         self._auto_reconnect = QCheckBox("Auto reconnect")
+        self._dtr_on_connect = QCheckBox("Assert DTR on connect")
 
         form.addRow("Port", self._port_combo)
         form.addRow("Baud rate", self._baud_combo)
@@ -94,6 +95,7 @@ class SettingsDialog(QDialog):
         options_layout.addWidget(self._send_on_enter)
         options_layout.addWidget(self._timestamp_prefix)
         options_layout.addWidget(self._auto_reconnect)
+        options_layout.addWidget(self._dtr_on_connect)
 
         layout.addLayout(form)
         layout.addWidget(options_box)
@@ -250,6 +252,7 @@ class SettingsDialog(QDialog):
         self._send_on_enter.setChecked(serial_settings.send_on_enter)
         self._timestamp_prefix.setChecked(serial_settings.timestamp_prefix)
         self._auto_reconnect.setChecked(serial_settings.auto_reconnect)
+        self._dtr_on_connect.setChecked(serial_settings.dtr_on_connect)
 
         self._font_combo.setCurrentFont(QFont(appearance.font_family, appearance.font_size))
         self._font_size.setValue(appearance.font_size)
@@ -291,6 +294,7 @@ class SettingsDialog(QDialog):
             line_ending=self._line_ending_combo.currentData() or "\n",
             auto_reconnect=self._auto_reconnect.isChecked(),
             timestamp_prefix=self._timestamp_prefix.isChecked(),
+            dtr_on_connect=self._dtr_on_connect.isChecked(),
         )
         self._appearance_settings = AppearanceSettings(
             font_family=self._font_combo.currentFont().family(),
