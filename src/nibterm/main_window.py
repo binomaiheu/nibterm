@@ -50,10 +50,9 @@ from .ui.help_window import HelpWindow
 from .ui.history_line_edit import CommandHistoryLineEdit
 from .version import __version__
 
-# Resolve static dir: repo root when running from source, or package static if present
-_STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
-if not (_STATIC_DIR / "connected.svg").exists():
-    _STATIC_DIR = Path(__file__).resolve().parent / "static"
+from .config.paths import static_dir
+
+_STATIC_DIR = static_dir()
 
 
 def _connect_icon() -> QIcon:

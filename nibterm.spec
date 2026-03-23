@@ -5,7 +5,7 @@ a = Analysis(
     ['run.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('static', 'static')],
     hiddenimports=['PySide6.QtSerialPort'],
     hookspath=[],
     hooksconfig={},

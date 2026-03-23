@@ -72,11 +72,22 @@ source .venv/bin/activate
 nibterm
 ```
 
-it is also possible to compile the tool to a standalone executable. this is done via : 
-
+it is also possible to compile the tool to a standalone executable. On Linux/macOS:
 
 ```
 pyinstaller --windowed --name nibterm --onefile --icon=static/nibterm-icon.ico --add-data "static:static" --hidden-import PySide6.QtSerialPort run.py
+```
+
+On Windows (note the `;` separator for `--add-data`):
+
+```
+pyinstaller --windowed --name nibterm --onefile --icon=static/nibterm-icon.ico --add-data "static;static" --hidden-import PySide6.QtSerialPort run.py
+```
+
+Alternatively, use the provided `nibterm.spec` file which works on all platforms:
+
+```
+pyinstaller nibterm.spec
 ```
 
 the exe will be in `dist`

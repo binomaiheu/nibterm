@@ -1,8 +1,6 @@
 """Help window with navigation and HTML content."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -15,10 +13,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-# Resolve static dir
-_STATIC_DIR = Path(__file__).resolve().parent.parent.parent.parent / "static"
-if not _STATIC_DIR.exists():
-    _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+from ..config.paths import static_dir
+
+_STATIC_DIR = static_dir()
 
 
 def _help_content() -> list[tuple[str, str]]:
