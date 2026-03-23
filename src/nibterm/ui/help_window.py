@@ -51,6 +51,9 @@ def _help_content() -> list[tuple[str, str]]:
             <ul>
                 <li>Use <b>Serial → Connect</b> (or the connection toolbar) to open the port.</li>
                 <li>Configure port, baud rate, and other options in <b>Serial → Settings</b>.</li>
+                <li>Enable <b>Assert DTR on connect</b> in settings (on by default) to signal the
+                device that the host is ready. Disable it for devices that use DTR as a reset line
+                (e.g. Arduino bootloader reset).</li>
             </ul>
             <h2>Parser mode</h2>
             <p>In <b>Serial → Parser</b> you choose:</p>

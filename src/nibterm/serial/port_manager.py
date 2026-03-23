@@ -52,11 +52,13 @@ class PortManager(QObject):
         self._serial.setFlowControl(settings.flow_control)
 
         if self._serial.open(QSerialPort.OpenModeFlag.ReadWrite):
-            self._serial.setDataTerminalReady(True)
+            if settings.dtr_on_connect:
+                self._serial.setDataTerminalReady(True)
             logger.debug(
-                "Opened %s @ %d baud, DTR asserted",
+                "Opened %s @ %d baud, DTR=%s",
                 settings.port_name,
                 settings.baud_rate,
+                "on" if settings.dtr_on_connect else "off",
             )
             self._reconnect_timer.stop()
             self.reconnecting.emit(False)
