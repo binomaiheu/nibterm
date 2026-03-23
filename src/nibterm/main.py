@@ -1,3 +1,5 @@
+import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -13,7 +15,15 @@ if not _STATIC_DIR.exists():
 
 
 def main() -> None:
-    app = QApplication(sys.argv)
+    parser = argparse.ArgumentParser(description="nibterm serial terminal")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="enable debug logging"
+    )
+    args, remaining = parser.parse_known_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s: %(message)s")
+
+    app = QApplication(remaining)
     icon_path = _STATIC_DIR / "nibterm-icon.png"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))

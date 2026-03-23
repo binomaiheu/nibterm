@@ -52,6 +52,12 @@ class PortManager(QObject):
         self._serial.setFlowControl(settings.flow_control)
 
         if self._serial.open(QSerialPort.OpenModeFlag.ReadWrite):
+            self._serial.setDataTerminalReady(True)
+            logger.debug(
+                "Opened %s @ %d baud, DTR asserted",
+                settings.port_name,
+                settings.baud_rate,
+            )
             self._reconnect_timer.stop()
             self.reconnecting.emit(False)
             self.connection_changed.emit(True)
@@ -81,6 +87,7 @@ class PortManager(QObject):
     @Slot()
     def _read_ready(self) -> None:
         data = self._serial.readAll()
+        logger.debug("readyRead: %d bytes", len(data))
         if not data.isEmpty():
             self.data_received.emit(bytes(data))
 
