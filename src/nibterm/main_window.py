@@ -46,6 +46,7 @@ from .ui.mqtt_monitor import MQTTMonitorWidget
 from .ui.mqtt_settings_dialog import MQTTSettingsDialog
 from .ui.serial_plot_panel import SerialPlotPanel
 from .ui.variable_dialog import VariablesDialog
+from .ui.firmware_widget import FirmwareWidget
 from .ui.help_window import HelpWindow
 from .ui.history_line_edit import CommandHistoryLineEdit
 from .version import __version__
@@ -164,6 +165,12 @@ class MainWindow(QMainWindow):
         self._terminal_tab_index = self._tabs.addTab(terminal_widget, "Terminal")
         self._mqtt_tab_index = self._tabs.addTab(self._mqtt_monitor_widget, "MQTT")
         self._dashboard_tab_index = self._tabs.addTab(self._dashboard_window, "Dashboard")
+
+        self._firmware_widget = FirmwareWidget(self)
+        self._firmware_tab_index = self._tabs.addTab(self._firmware_widget, "Firmware")
+        self._firmware_widget.port_release_requested.connect(self._release_port_for_upload)
+        self._firmware_widget.upload_complete.connect(self._reclaim_port_after_upload)
+        self._port_released_for_upload = False
         self._tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self._command_toolbar = CommandToolbar(self)
@@ -216,11 +223,13 @@ class MainWindow(QMainWindow):
         self._create_actions()
         self._restore_window_state()
         self._restore_last_preset()
+        self._firmware_widget.restore_last_config()
 
         self._port_manager.set_auto_reconnect(self._serial_settings.auto_reconnect)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._save_settings()
+        self._firmware_widget.cancel_if_running()
         if self._file_logger.is_active():
             self._file_logger.stop()
         if self._mqtt_manager.is_connected():
@@ -295,6 +304,13 @@ class MainWindow(QMainWindow):
         self._action_cascade_plots.triggered.connect(self._cascade_plots)
         view_menu.addAction(self._action_tile_plots)
         view_menu.addAction(self._action_cascade_plots)
+
+        firmware_menu = menu.addMenu("Firmware")
+        self._action_load_firmware_config = QAction("Load device config…", self)
+        self._action_load_firmware_config.triggered.connect(
+            self._firmware_widget.load_config_dialog
+        )
+        firmware_menu.addAction(self._action_load_firmware_config)
 
         help_menu = menu.addMenu("Help")
         self._action_help = QAction("Help", self)
@@ -417,6 +433,24 @@ class MainWindow(QMainWindow):
     @Slot()
     def _disconnect_serial(self) -> None:
         self._port_manager.close()
+
+    # -- Firmware upload port coordination ----------------------------------
+
+    @Slot(str)
+    def _release_port_for_upload(self, port_name: str) -> None:
+        if (
+            self._port_manager.is_open()
+            and self._serial_settings.port_name == port_name
+        ):
+            self._port_manager.close(manual=True)
+            self._port_released_for_upload = True
+        self._firmware_widget.notify_port_released()
+
+    @Slot()
+    def _reclaim_port_after_upload(self) -> None:
+        if self._port_released_for_upload:
+            self._port_released_for_upload = False
+            self._connect_serial()
 
     @Slot(bool)
     def _on_connection_changed(self, connected: bool) -> None:

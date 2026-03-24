@@ -1,0 +1,39 @@
+# Firmware device configuration for nibterm
+#
+# firmware_folder: directory containing firmware binaries
+# log_folder:      (optional) directory for upload log files
+#
+# Each device defines:
+#   name:                unique identifier
+#   label:               display name in the UI
+#   executable:          command or path to the upload tool
+#   args:                arguments template — use {port} and {firmware} placeholders
+#   version_pattern:     regex with one capture group to extract version from filename
+#   file_glob:           glob pattern to match firmware files
+#   pre_upload_delay_ms: (optional) delay in ms after closing serial port before upload
+
+firmware_folder: "/path/to/firmware/files"
+log_folder: "/path/to/upload/logs"
+
+devices:
+  - name: avrdude-uno
+    label: "Arduino Uno (AVR)"
+    executable: avrdude
+    args: "-p atmega328p -c arduino -P {port} -b 115200 -U flash:w:{firmware}:i"
+    version_pattern: '.*_v(\d+\.\d+\.\d+)\.hex$'
+    file_glob: "*.hex"
+
+  - name: avrdude-mega
+    label: "Arduino Mega (AVR)"
+    executable: avrdude
+    args: "-p atmega2560 -c wiring -P {port} -b 115200 -D -U flash:w:{firmware}:i"
+    version_pattern: '.*_v(\d+\.\d+\.\d+)\.hex$'
+    file_glob: "*.hex"
+
+  - name: bossac-samd21
+    label: "SAMD21 (BOSSA)"
+    executable: bossac
+    args: "--port={port} -U -i -e -w -v {firmware} -R"
+    version_pattern: '.*_v(\d+\.\d+\.\d+)\.bin$'
+    file_glob: "*.bin"
+    pre_upload_delay_ms: 500

@@ -79,3 +79,8 @@ CONSOLE_MAX_BLOCK_COUNT = "console/max_block_count"
 # -- command history -------------------------------------------------------
 HISTORY_ENTRIES = "history/entries"
 HISTORY_MAX_LENGTH = "history/max_length"
+
+# -- firmware --------------------------------------------------------------
+FIRMWARE_CONFIG_PATH = "firmware/config_path"
+FIRMWARE_LAST_DEVICE = "firmware/last_device"
+FIRMWARE_LAST_PORT = "firmware/last_port"
