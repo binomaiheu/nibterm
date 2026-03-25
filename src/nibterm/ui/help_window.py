@@ -494,6 +494,14 @@ commands:
             <p>The toolchain file defines where firmware binaries live and how to upload them.
             An example is provided in <code>config_example/firmware_toolchains.yaml</code>.</p>
 
+            <p>You will have to install the toolchains that you required manually, a good practise is to keep them in 
+            a dedicated folder (e.g. <code>toolchains/</code>) and add that folder to your system <code>PATH</code> so the executables are found. 
+            Here is a list of resources to help you get started:
+            <ul>
+                <li><a href="https://github.com/avrdudes/avrdude">avrdude</a> — popular AVR uploader supporting many devices, see the releases page on github for versions</li>
+            </ul>                
+            </p>
+
             <h3>Top-level fields</h3>
             <ul>
                 <li><b>firmware_folder</b> (string, required) — Default directory containing
@@ -547,6 +555,18 @@ devices:
     version_pattern: '.*_v(\\d+\\.\\d+\\.\\d+)\\.bin$'
     file_glob: "*.bin"
     pre_upload_delay_ms: 500</pre>
+
+
+            Note that under windows, the user is required to use forward slashes in paths (e.g. <code>C:/path/to/firmware</code>)
+            due to how the upload tool is invoked via subprocess. An example for windows would be:
+            <pre>devices:
+  - name: owlogger
+    label: "VMM IoT OWLogger"
+    executable: c:/Tools/nibterm/toolchains/avrdude/v8.1/avrdude.exe
+    args: "-v -p m1284p -c arduino -P {port} -b 57600 -D -U flash:w:{firmware}:i"
+    firmware_folder: "C:/Tools/nibterm/data/firmware/vmm-iot-owlogger"
+    version_pattern: 'vmm-iot-owlogger-firmware-v(\\d+\\.\\d+\\.\\d+)/firmware\\.hex$'
+    file_glob: "**/firmware.hex"</pre>
 
             <h2>Folder structure</h2>
             <p>Firmware files can be organized in version-tagged subdirectories:</p>
