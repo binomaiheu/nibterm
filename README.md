@@ -26,16 +26,13 @@ So this is my vibe-coded attempt to create something which ticks all those boxes
 
 ## Features
 
-- **Serial terminal** — configurable port, baud rate, data/parity/stop bits, flow control
+- **Serial terminal** — configurable port, baud rate, data/parity/stop bits, flow control, local echo, send-on-enter, auto-reconnect, timestamp prefix, DTR on connect, terminal theming & log incoming to file
 - **MQTT monitor** — connect to brokers, browse topics, extract variables from payloads
 - **Flexible parsers** — CSV, JSON, or per-variable regex extraction
 - **Transforms** — computed variables from math expressions (unit conversions, sensor fusion)
 - **Live dashboard** — real-time time-series and XY plots via pyqtgraph
 - **Command presets** — YAML-defined buttons with parameters and flag toggles
 - **Firmware upload** — flash firmware to devices using configurable toolchains (avrdude, bossac, etc.)
-- Local echo, send-on-enter, auto-reconnect, timestamp prefix, DTR on connect
-- Terminal theming (font and colors)
-- Log incoming data to file
 
 ## Getting started
 
@@ -127,6 +124,26 @@ Key features:
 - **Upload logging** — optional timestamped log files for each upload
 
 Use `{port}` and `{firmware}` as placeholders in the `args` template. See `config_example/firmware_toolchains.yaml` for a complete example and `Help → Firmware upload` for full documentation.
+
+Note that under `windows`, the user needs to use **forward slashes** to enter the path information. A full example  : 
+
+```
+devices:
+  - name: owlogger
+    label: "VMM IoT OWLogger"
+    executable: c:/Tools/nibterm/toolchains/avrdude/v8.1/avrdude.exe
+    args: "-v -p m1284p -c arduino -P {port} -b 57600 -D -U flash:w:{firmware}:i"
+    firmware_folder: "C:/Tools/nibterm/data/firmware/vmm-iot-owlogger"
+    version_pattern: 'vmm-iot-owlogger-firmware-v(\d+\.\d+\.\d+)/firmware\.hex$'
+    file_glob: "**/firmware.hex"
+```
+
+#### Toolchains
+
+Note that you will need to install the different toolchains manually. Here is a good starting point : 
+
+* `avrdude`: needed for the AVR microcontrollers for the surfacewater IoT devices, install from the releases under [https://github.com/avrdudes/avrdude](https://github.com/avrdudes/avrdude/)
+* `bossac: ...t.b.a.
 
 ### Presets
 
