@@ -1,0 +1,42 @@
+# Firmware device configuration for nibterm
+#
+# firmware_folder: directory containing firmware binaries
+# log_folder:      (optional) directory for upload log files
+#
+# Each device defines:
+#   name:                unique identifier
+#   label:               display name in the UI
+#   executable:          command or path to the upload tool
+#   args:                arguments template — use {port} and {firmware} placeholders
+#   version_pattern:     regex with one capture group to extract version from relative path
+#   file_glob:           glob pattern to match firmware files (use **/ to recurse into subdirs)
+#   firmware_folder:     (optional) override the global firmware_folder for this device
+#   pre_upload_delay_ms: (optional) delay in ms after closing serial port before upload
+
+firmware_folder: "/home/bino/Development/nibterm/data/firmware"
+log_folder: "/home/bino/Development/nibterm/data/logs"
+
+devices:
+  - name: owlogger
+    label: "VMM IoT OWLogger"
+    executable: avrdude
+    args: "-v -p m1284p -c arduino -P {port} -b 57600 -D -U flash:w:{firmware}:i"
+    firmware_folder: "/home/bino/Development/nibterm/data/firmware/owlogger"
+    version_pattern: 'vmm-iot-owlogger-firmware-v(\d+\.\d+\.\d+)/firmware\.hex$'
+    file_glob: "**/firmware.hex"
+
+  - name: owlogger-retrofit
+    label: "VMM IoT OWLogger Retrofit"
+    executable: avrdude
+    args: "-v -p m1284p -c arduino -P {port} -b 57600 -D -U flash:w:{firmware}:i"
+    firmware_folder: "/home/bino/Development/nibterm/data/firmware/owlogger-retrofit"
+    version_pattern: 'vmm-iot-owlogger-firmware-v1.8.8-rv1-(\d+\.\d+)/firmware\.hex$'
+    file_glob: "**/firmware.hex"
+
+#  - name: bossac-samd21
+#    label: "SAMD21 (BOSSA)"
+#    executable: bossac
+#    args: "--port={port} -U -i -e -w -v {firmware} -R"
+#    version_pattern: '.*_v(\d+\.\d+\.\d+)\.bin$'
+#    file_glob: "*.bin"
+#    pre_upload_delay_ms: 500

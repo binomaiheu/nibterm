@@ -468,6 +468,103 @@ commands:
             </ul>
             """,
         ),
+        (
+            "Firmware upload",
+            """
+            <h1>Firmware upload</h1>
+            <p>The <b>Firmware</b> tab lets you flash firmware binaries to connected devices
+            directly from nibterm. It supports any command-line upload tool (e.g.
+            <code>avrdude</code>, <code>bossac</code>) configured via a YAML toolchain file.</p>
+
+            <h2>Getting started</h2>
+            <ol>
+                <li>Open the <b>Firmware</b> tab.</li>
+                <li>Click <b>Browse…</b> to load a toolchain configuration YAML file
+                (or it is restored automatically from the last session).</li>
+                <li>Select a <b>Device</b> from the dropdown.</li>
+                <li>Select a <b>Firmware</b> version — files are scanned from the configured
+                firmware folder and sorted by version (newest first).</li>
+                <li>Select the <b>Port</b> (refreshed from available serial ports).</li>
+                <li>Click <b>Upload</b>.</li>
+            </ol>
+            <p>If the serial terminal is connected to the same port, nibterm automatically
+            releases it before starting the upload and emits a signal when done.</p>
+
+            <h2>Toolchain YAML configuration</h2>
+            <p>The toolchain file defines where firmware binaries live and how to upload them.
+            An example is provided in <code>config_example/firmware_toolchains.yaml</code>.</p>
+
+            <h3>Top-level fields</h3>
+            <ul>
+                <li><b>firmware_folder</b> (string, required) — Default directory containing
+                firmware binaries. Each device can override this.</li>
+                <li><b>log_folder</b> (string, optional) — Directory for upload log files.
+                If set, each upload is logged with a timestamped filename.</li>
+            </ul>
+
+            <h3>Device fields</h3>
+            <p>The <b>devices</b> list defines one or more target devices:</p>
+            <ul>
+                <li><b>name</b> (string, required) — Unique identifier for the device.</li>
+                <li><b>label</b> (string, required) — Display name shown in the UI dropdown.</li>
+                <li><b>executable</b> (string, required) — Upload tool command
+                (e.g. <code>avrdude</code>, <code>bossac</code>). Must be in <code>$PATH</code>
+                or an absolute path.</li>
+                <li><b>args</b> (string, required) — Arguments template. Use <code>{port}</code>
+                for the serial port and <code>{firmware}</code> for the firmware file path.
+                These placeholders are substituted at upload time.</li>
+                <li><b>version_pattern</b> (string, required) — Python regex with one capture group
+                to extract the version string from the <i>relative path</i> (from the firmware folder).
+                This allows matching version tags in parent directory names.</li>
+                <li><b>file_glob</b> (string, required) — Glob pattern to find firmware files.
+                Use <code>**/</code> to recurse into subdirectories
+                (e.g. <code>**/firmware.hex</code>).</li>
+                <li><b>firmware_folder</b> (string, optional) — Override the global
+                <code>firmware_folder</code> for this device. Useful when different devices
+                have their binaries in separate directories.</li>
+                <li><b>pre_upload_delay_ms</b> (integer, optional) — Delay in milliseconds
+                after closing the serial port before starting the upload. Some bootloaders
+                need time to enter programming mode (default: 0).</li>
+            </ul>
+
+            <h2>Example configuration</h2>
+            <pre>firmware_folder: "/path/to/firmware"
+log_folder: "/path/to/logs"
+
+devices:
+  - name: owlogger
+    label: "VMM IoT OWLogger"
+    executable: avrdude
+    args: "-v -p m1284p -c arduino -P {port} -b 57600 -D -U flash:w:{firmware}:i"
+    firmware_folder: "/path/to/firmware/owlogger"
+    version_pattern: 'firmware-v(\\d+\\.\\d+\\.\\d+)/firmware\\.hex$'
+    file_glob: "**/firmware.hex"
+
+  - name: samd21-device
+    label: "SAMD21 (BOSSA)"
+    executable: bossac
+    args: "--port={port} -U -i -e -w -v {firmware} -R"
+    version_pattern: '.*_v(\\d+\\.\\d+\\.\\d+)\\.bin$'
+    file_glob: "*.bin"
+    pre_upload_delay_ms: 500</pre>
+
+            <h2>Folder structure</h2>
+            <p>Firmware files can be organized in version-tagged subdirectories:</p>
+            <pre>firmware/owlogger/
+  firmware-v1.10.0/firmware.hex
+  firmware-v1.11.0/firmware.hex
+  firmware-v1.13.0/firmware.hex</pre>
+            <p>With <code>file_glob: "**/firmware.hex"</code> and a <code>version_pattern</code>
+            that captures the version from the directory name, nibterm finds all versions
+            and lists them sorted (newest first).</p>
+
+            <h2>Output</h2>
+            <p>Upload tool output is shown in real time in the output pane. Progress bars
+            (tools that use carriage returns to update in place, such as avrdude) are
+            rendered on a single line. Upload logs are saved to <code>log_folder</code>
+            if configured.</p>
+            """,
+        ),
     ]
 
 
