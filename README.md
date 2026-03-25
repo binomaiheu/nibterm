@@ -32,6 +32,7 @@ So this is my vibe-coded attempt to create something which ticks all those boxes
 - **Transforms** — computed variables from math expressions (unit conversions, sensor fusion)
 - **Live dashboard** — real-time time-series and XY plots via pyqtgraph
 - **Command presets** — YAML-defined buttons with parameters and flag toggles
+- **Firmware upload** — flash firmware to devices using configurable toolchains (avrdude, bossac, etc.)
 - Local echo, send-on-enter, auto-reconnect, timestamp prefix, DTR on connect
 - Terminal theming (font and colors)
 - Log incoming data to file
@@ -99,6 +100,33 @@ the exe will be in `dist`
 - Send commands from the input field or load a YAML preset from **File → Load preset...**.
 - Switch to the **Dashboard** tab to add plots and use **Setup** per plot.
 - Start logging from **Tools → Start logging...**.
+
+### Firmware upload
+
+The **Firmware** tab lets you flash firmware binaries to connected devices directly from nibterm. Configure a YAML toolchain file that defines the upload tool, arguments, and where firmware files live.
+
+```yaml
+firmware_folder: "/path/to/firmware"
+log_folder: "/path/to/logs"
+
+devices:
+  - name: owlogger
+    label: "VMM IoT OWLogger"
+    executable: avrdude
+    args: "-v -p m1284p -c arduino -P {port} -b 57600 -D -U flash:w:{firmware}:i"
+    firmware_folder: "/path/to/firmware/owlogger"
+    version_pattern: 'firmware-v(\d+\.\d+\.\d+)/firmware\.hex$'
+    file_glob: "**/firmware.hex"
+```
+
+Key features:
+- **Per-device firmware folders** — each device can override the global `firmware_folder`
+- **Version-tagged subdirectories** — use `**/` in `file_glob` and a `version_pattern` that matches directory names to organize firmware in folders like `firmware-v1.13.0/firmware.hex`
+- **Automatic port release** — if the serial terminal is connected to the upload port, nibterm releases it automatically
+- **Live progress** — upload tool output (including progress bars) is shown in real time
+- **Upload logging** — optional timestamped log files for each upload
+
+Use `{port}` and `{firmware}` as placeholders in the `args` template. See `config_example/firmware_toolchains.yaml` for a complete example and `Help → Firmware upload` for full documentation.
 
 ### Presets
 

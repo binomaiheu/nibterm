@@ -34,7 +34,6 @@ class FirmwareWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._config: FirmwareConfig | None = None
-        self._registry: FirmwareRegistry | None = None
         self._firmware_files: list[FirmwareFile] = []
         self._runner = UploadRunner(self)
         self._upload_logger = FileLogger()
@@ -99,8 +98,10 @@ class FirmwareWidget(QWidget):
         btn_row = QHBoxLayout()
         self._upload_btn = QPushButton("Upload")
         self._upload_btn.setEnabled(False)
+        self._upload_btn.setMinimumHeight(36)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setEnabled(False)
+        self._cancel_btn.setMinimumHeight(36)
         btn_row.addWidget(self._upload_btn)
         btn_row.addWidget(self._cancel_btn)
         btn_row.addStretch()
@@ -132,6 +133,7 @@ class FirmwareWidget(QWidget):
         self._clear_btn.clicked.connect(self._output.clear)
 
         self._runner.output_line.connect(self._on_output_line)
+        self._runner.output_replace.connect(self._on_output_replace)
         self._runner.upload_started.connect(self._on_upload_started)
         self._runner.upload_finished.connect(self._on_upload_finished)
 
@@ -153,8 +155,6 @@ class FirmwareWidget(QWidget):
 
         self._config_path_label.setText(path)
         self._reload_btn.setEnabled(True)
-
-        self._registry = FirmwareRegistry(self._config.firmware_folder)
 
         self._device_combo.blockSignals(True)
         self._device_combo.clear()
@@ -203,10 +203,12 @@ class FirmwareWidget(QWidget):
         self._firmware_files = []
 
         dev = self._current_device()
-        if not dev or not self._registry:
+        if not dev or not self._config:
             return
 
-        self._firmware_files = self._registry.scan(dev.file_glob, dev.version_pattern)
+        folder = dev.firmware_folder or self._config.firmware_folder
+        registry = FirmwareRegistry(folder)
+        self._firmware_files = registry.scan(dev.file_glob, dev.version_pattern)
         for fw in self._firmware_files:
             display = f"v{fw.version}" if fw.version != "unknown" else fw.filename
             self._firmware_combo.addItem(f"{display}  ({fw.filename})")
@@ -234,7 +236,7 @@ class FirmwareWidget(QWidget):
         current = self._port_combo.currentText()
         self._port_combo.clear()
         for info in QSerialPortInfo.availablePorts():
-            self._port_combo.addItem(info.portName())
+            self._port_combo.addItem(info.systemLocation())
         if current:
             idx = self._port_combo.findText(current)
             if idx >= 0:
@@ -326,9 +328,23 @@ class FirmwareWidget(QWidget):
 
     @Slot(str)
     def _on_output_line(self, line: str) -> None:
+        """A newline was received — move to the next line."""
         self._output.appendPlainText(line)
         if self._upload_logger.is_active():
             self._upload_logger.log_line(line)
+
+    @Slot(str)
+    def _on_output_replace(self, line: str) -> None:
+        """Replace the last line with the fully resolved line content."""
+        cursor = self._output.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor
+        )
+        cursor.removeSelectedText()
+        cursor.insertText(line)
+        self._output.setTextCursor(cursor)
+        self._output.ensureCursorVisible()
 
     def _append_info(self, text: str) -> None:
         cursor = self._output.textCursor()

@@ -15,6 +15,7 @@ class Device:
     version_pattern: str
     file_glob: str
     pre_upload_delay_ms: int = 0
+    firmware_folder: str | None = None
 
 
 @dataclass
@@ -79,6 +80,10 @@ def load_firmware_config(path: str | Path) -> FirmwareConfig:
         if not isinstance(pre_upload_delay_ms, int):
             raise ValueError(f"Device '{name}': 'pre_upload_delay_ms' must be an integer.")
 
+        dev_firmware_folder = entry.get("firmware_folder")
+        if dev_firmware_folder is not None and not isinstance(dev_firmware_folder, str):
+            raise ValueError(f"Device '{name}': 'firmware_folder' must be a string if provided.")
+
         devices.append(
             Device(
                 name=name,
@@ -88,6 +93,7 @@ def load_firmware_config(path: str | Path) -> FirmwareConfig:
                 version_pattern=version_pattern,
                 file_glob=file_glob,
                 pre_upload_delay_ms=pre_upload_delay_ms,
+                firmware_folder=dev_firmware_folder,
             )
         )
 

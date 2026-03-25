@@ -40,7 +40,11 @@ class FirmwareRegistry:
         for path in self._folder.glob(file_glob):
             if not path.is_file():
                 continue
-            match = re.search(version_pattern, path.name)
+            # Match version pattern against the relative path so patterns
+            # that include parent directory names (e.g. version-tagged folders)
+            # can be used.
+            rel_path = path.relative_to(self._folder).as_posix()
+            match = re.search(version_pattern, rel_path)
             version = match.group(1) if match else "unknown"
             results.append(FirmwareFile(path=path, filename=path.name, version=version))
 

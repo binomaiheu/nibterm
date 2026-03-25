@@ -16,13 +16,17 @@ def resolve_args(template: str, port: str, firmware: str) -> list[str]:
 
 
 class UploadRunner(QObject):
-    output_line = Signal(str)
+    output_line = Signal(str)      # append a new line
+    output_replace = Signal(str)   # replace the current line content
     upload_finished = Signal(int, str)  # exit_code, "normal" | "crashed"
     upload_started = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._process: QProcess | None = None
+        self._cur_line: list[str] = []  # current line as list of chars
+        self._cur_pos: int = 0          # cursor position within current line
+        self._line_shown: bool = False  # True if current line was emitted via output_replace
 
     def is_running(self) -> bool:
         return (
@@ -58,11 +62,42 @@ class UploadRunner(QObject):
             return
         data = self._process.readAllStandardOutput()
         text = bytes(data).decode("utf-8", errors="replace")
-        for line in text.splitlines():
-            self.output_line.emit(line)
+
+        for ch in text:
+            if ch == "\n":
+                # Line complete — if we already showed this line via
+                # output_replace, just advance; otherwise emit content.
+                if self._line_shown:
+                    self.output_line.emit("")
+                else:
+                    self.output_line.emit("".join(self._cur_line))
+                self._cur_line.clear()
+                self._cur_pos = 0
+                self._line_shown = False
+            elif ch == "\r":
+                # Carriage return — move cursor to start of line
+                self._cur_pos = 0
+            else:
+                # Overwrite or append character at cursor position
+                if self._cur_pos < len(self._cur_line):
+                    self._cur_line[self._cur_pos] = ch
+                else:
+                    self._cur_line.append(ch)
+                self._cur_pos += 1
+
+        # Emit current line state so the UI shows live progress
+        if self._cur_line:
+            self.output_replace.emit("".join(self._cur_line))
+            self._line_shown = True
 
     @Slot(int, QProcess.ExitStatus)
     def _on_finished(self, exit_code: int, exit_status: QProcess.ExitStatus) -> None:
+        if self._cur_line and not self._line_shown:
+            self.output_line.emit("".join(self._cur_line))
+        self._cur_line.clear()
+        self._cur_pos = 0
+        self._line_shown = False
+
         status = (
             "normal"
             if exit_status == QProcess.ExitStatus.NormalExit
