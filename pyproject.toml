@@ -1,6 +1,6 @@
 [project]
 name = "nibterm"
-version = "0.9.1"
+version = "0.9.2"
 description = "A terminal and firmware management tool for IoT devices"
 readme = "README.md"
 authors = [
