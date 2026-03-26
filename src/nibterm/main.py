@@ -19,6 +19,7 @@ def main() -> None:
         logging.basicConfig(level=logging.DEBUG, format="%(name)s: %(message)s")
 
     app = QApplication(remaining)
+    app.setStyle("Fusion")
     icon_path = static_dir() / "nibterm-icon.png"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
