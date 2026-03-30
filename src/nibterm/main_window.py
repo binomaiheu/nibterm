@@ -681,6 +681,8 @@ class MainWindow(QMainWindow):
         self._port_manager.write(payload.encode("utf-8"))
         if self._serial_settings.local_echo:
             self._console.append_text_colored(f"> {raw}", "#d32f2f")
+        if self._serial_settings.log_commands and self._file_logger.is_active():
+            self._file_logger.log_line(f"> {raw}")
         self._input_line.clear()
 
     def _send_command(self, command: str) -> None:
@@ -689,6 +691,8 @@ class MainWindow(QMainWindow):
         self._port_manager.write(command.encode("utf-8"))
         if self._serial_settings.local_echo:
             self._console.append_text_colored(f"> {command.rstrip()}", "#d32f2f")
+        if self._serial_settings.log_commands and self._file_logger.is_active():
+            self._file_logger.log_line(f"> {command.rstrip()}")
 
     def _start_logging(self) -> None:
         dialog = QFileDialog(
