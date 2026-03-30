@@ -577,6 +577,8 @@ class MainWindow(QMainWindow):
             _connect_icon() if connected else _disconnect_icon()
         )
         self._set_mqtt_status_state("connected" if connected else "disconnected")
+        if not connected:
+            self._mqtt_monitor_widget.clear_topics()
 
     def _on_mqtt_error(self, message: str) -> None:
         QMessageBox.warning(self, "MQTT", message)

@@ -64,6 +64,11 @@ class MQTTMonitorWidget(QWidget):
         self._displayed_topic: str = ""
         self._displayed_topic_for_parser: str = ""
 
+        self._topic_filter = QLineEdit()
+        self._topic_filter.setPlaceholderText("Filter topics…")
+        self._topic_filter.setClearButtonEnabled(True)
+        self._topic_filter.textChanged.connect(self._apply_topic_filter)
+
         self._tree = QTreeWidget()
         self._tree.setHeaderLabels(["Topic"])
         self._tree.setAlternatingRowColors(True)
@@ -139,8 +144,15 @@ class MQTTMonitorWidget(QWidget):
         right_widget = QWidget()
         right_widget.setLayout(right)
 
+        left_layout = QVBoxLayout()
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.addWidget(self._topic_filter)
+        left_layout.addWidget(self._tree)
+        left_widget = QWidget()
+        left_widget.setLayout(left_layout)
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self._tree)
+        splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
@@ -405,6 +417,29 @@ class MQTTMonitorWidget(QWidget):
             )
         self._update_message_display_plot_highlights()
 
+    def _apply_topic_filter(self, text: str = "") -> None:
+        """Show only tree items whose full topic path contains *text* (case-insensitive)."""
+        needle = text.strip().lower()
+        root = self._tree.invisibleRootItem()
+        for i in range(root.childCount()):
+            self._filter_tree_item(root.child(i), needle)
+
+    def _filter_tree_item(self, item: "QTreeWidgetItem", needle: str) -> bool:
+        """Recursively show/hide *item*. Returns True if item should be visible."""
+        path = (item.data(0, Qt.ItemDataRole.UserRole) or "").lower()
+        if item.childCount() == 0:
+            visible = not needle or needle in path
+        else:
+            any_child_visible = False
+            for i in range(item.childCount()):
+                if self._filter_tree_item(item.child(i), needle):
+                    any_child_visible = True
+            visible = any_child_visible
+        item.setHidden(not visible)
+        if visible and needle:
+            item.setExpanded(True)
+        return visible
+
     def _find_or_create_path(
         self, parent: QTreeWidgetItem, topic: str
     ) -> QTreeWidgetItem:
@@ -432,6 +467,7 @@ class MQTTMonitorWidget(QWidget):
             return
         root = self._tree.invisibleRootItem()
         self._find_or_create_path(root, topic)
+        self._apply_topic_filter(self._topic_filter.text())
 
     def _on_topic_selection_changed(self) -> None:
         items = self._tree.selectedItems()
@@ -557,6 +593,18 @@ class MQTTMonitorWidget(QWidget):
                 if v.json_path:
                     paths.add(v.json_path)
         self._message_display.set_plot_variable_paths(paths)
+
+    def clear_topics(self) -> None:
+        """Clear the topic tree and cached messages (called on broker disconnect)."""
+        self._messages_by_topic.clear()
+        self._message_time_by_topic.clear()
+        self._displayed_topic = ""
+        self._displayed_topic_for_parser = ""
+        self._tree.clear()
+        self._message_display.setPlainText("")
+        self._message_display.set_path_ranges([])
+        self._message_time_label.setText("")
+        self._parser_panel.setVisible(False)
 
     @Slot(str, bytes)
     def on_message_received(self, topic: str, payload: bytes) -> None:
