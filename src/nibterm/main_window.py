@@ -46,6 +46,7 @@ from .ui.mqtt_monitor import MQTTMonitorWidget
 from .ui.mqtt_settings_dialog import MQTTSettingsDialog
 from .ui.serial_plot_panel import SerialPlotPanel
 from .ui.variable_dialog import VariablesDialog
+from .ui.devices_widget import DevicesWidget
 from .ui.firmware_widget import FirmwareWidget
 from .ui.help_window import HelpWindow
 from .ui.history_line_edit import CommandHistoryLineEdit
@@ -162,6 +163,10 @@ class MainWindow(QMainWindow):
         terminal_widget.layout().addWidget(self._serial_plot_panel)
 
         self._tabs = QTabWidget()
+
+        self._devices_widget = DevicesWidget(self)
+        self._devices_tab_index = self._tabs.addTab(self._devices_widget, "Devices")
+
         self._terminal_tab_index = self._tabs.addTab(terminal_widget, "Terminal")
         self._mqtt_tab_index = self._tabs.addTab(self._mqtt_monitor_widget, "MQTT")
         self._dashboard_tab_index = self._tabs.addTab(self._dashboard_window, "Dashboard")
