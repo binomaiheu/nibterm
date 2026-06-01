@@ -19,13 +19,8 @@ commands:
     description: Start the device.
     color: "#80dd8e"
   - label: set pw
-    command: "set pw {admin}\n"
-    description: Set admin password.
-    params:
-      - name: admin
-        label: Admin pw
-        default: "admin"
-        description: Admin password.
+    command: "set pw\n"
+    description: Set admin password. 
   - label: set pin
     command: "set pin {pin}\n"
     description: Set pin code.
@@ -34,7 +29,7 @@ commands:
         label: PIN code
         default: "0000"
         description: PIN code (4 digits).
-  - label: modem {enable}
+  - label: modem enable
     command: "modem {enable}\n"
     description: Enable/disable modem.
     params:
