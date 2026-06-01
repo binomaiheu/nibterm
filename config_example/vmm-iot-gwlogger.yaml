@@ -20,7 +20,23 @@ commands:
     color: "#80dd8e"
   - label: set pw
     command: "set pw\n"
-    description: Set admin password. 
+    description: Set admin password.
+  - label: "-oldpw-"
+    command: "{string1}\n"
+    description: Send a custom string to the device.
+    params:
+      - name: string1
+        label: String
+        default: "admin"
+        description: Custom string to send.
+  - label: -newpw-"
+    command: "{string2}\n"
+    description: Send a custom string to the device.
+    params:
+      - name: string2
+        label: String
+        default: "admin"
+        description: Custom string to send.
   - label: set pin
     command: "set pin {pin}\n"
     description: Set pin code.
