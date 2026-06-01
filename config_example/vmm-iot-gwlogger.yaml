@@ -5,9 +5,79 @@ commands:
   - label: help
     command: "help\n"
     description: Show help for the commands
+    color: "#eafdff"
   - label: show
     command: "show\n"
     description: Show information about the device.
+    color: "#eafdff"
+  - label: store
+    command: "store\n"
+    description: Store current configuration to device.
+    color: "#f18081"
+  - label: start
+    command: "start\n"
+    description: Start the device.
+    color: "#80dd8e"
+  - label: set pw
+    command: "set pw {admin}\n"
+    description: Set admin password.
+    params:
+      - name: admin
+        label: Admin pw
+        default: "admin"
+        description: Admin password.
+  - label: set pin
+    command: "set pin {pin}\n"
+    description: Set pin code.
+    params:
+      - name: pin
+        label: PIN code
+        default: "0000"
+        description: PIN code (4 digits).
+  - label: modem {enable}
+    command: "modem {enable}\n"
+    description: Enable/disable modem.
+    params:
+      - name: enable
+        label: Enable (0/1)
+        default: "1"
+        description: 1 to enable, 0 to disable.
+  - label: pin enable
+    command: "pin enable {pin}\n"
+    description: Enable/disable pin code.
+    params:
+      - name: pin
+        label: PIN code
+        default: "0000"
+        description: Enable pin code on modem
+  - label: set name
+    command: "set name\n"
+    description: Set name of the device.
+  - label: set modem
+    command: "set modem\n"
+    description: Set modem configuration in device.
+  - label: mqtt un
+    command: "mqtt un {username}\n"
+    description: Set MQTT username.
+    params:
+      - name: username
+        label: Username
+        default: "user"
+        description: MQTT username for authentication.
+  - label: mqtt pw
+    command: "mqtt pw {password}\n"
+    description: Set MQTT password.
+    params:
+      - name: password
+        label: Password
+        default: "password"
+        description: MQTT password for authentication.
+  - label: arch clear
+    command: "arch -c\n"
+    description: Clear archive data.  
+  - label: arch show
+    command: "arch -r\n"
+    description: Read archive data.
   - label: ch
     command: "ch {num} {enable}\n"
     description: Enable/disable channel.
@@ -20,18 +90,6 @@ commands:
         label: Enable (0/1)
         default: "1"
         description: 1 to enable, 0 to disable.
-  - label: chcnf
-    command: "chcnf {num} {cnf}\n"
-    description: Configure channel.
-    params:
-      - name: num
-        label: Channel number
-        default: "1"
-        description: Channel number (1-4).
-      - name: cnf
-        label: Configuration
-        default: "1.0;0.0;0.0;0.0"
-        description: Configuration string (see. documentation).
   - label: set loc
     command: "set loc {name}\n"
     description: Set location of the device.
@@ -40,3 +98,54 @@ commands:
         label: Name
         default: "unknown"
         description: Name of the location.
+  - label: gps
+    command: "gps -u -t 180\n"
+    description: Update GPS.
+  - label: set rf
+    command: "set rf {min}\n"
+    description: Set the readout frequency
+    params:
+      - name: min
+        label: Minutes
+        default: "15"
+        description: Duration in minutes for the readout frequency.
+  - label: set sf 
+    command: "set sf {min}\n"
+    description: Set the status frequency
+    params:
+      - name: min
+        label: Minutes
+        default: "15"
+        description: Duration in minutes for the status frequency.
+  - label: set
+    command: "set {param} {value}\n"
+    description: Set generic config parameters in device.
+    params:
+      - name: param
+        label: Parameter
+        default: "param"
+        description: Parameter name.
+      - name: value
+        label: Value
+        default: "value"
+        description: Parameter value.
+  - label: mc
+    command: "mc {cmd}\n"
+    description: Execute a MODEM AT command
+    params:
+      - name: cmd
+        label: Command
+        default: "AT"
+        description: Modem AT command to execute, e.g. "AT+CSQ" to check signal quality.
+  - label: reset pin
+    command: "mc AT+CPIN={puk},{newpin}\n"
+    description: Set new pin command
+    params:
+      - name: puk
+        label: PUK
+        default: "00000000"
+        description: PUK code for the SIM card.
+      - name: newpin
+        label: New PIN
+        default: "0000"
+        description: New PIN code for the SIM card.
