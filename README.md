@@ -36,7 +36,18 @@ So this is my vibe-coded attempt to create something which ticks all those boxes
 
 ## Getting started
 
-I haven't wrapped this in an installer yet, so you'll have to run it from source for now. Fortunately, this is easy. The tool uses python & the `uv` package manager. So you'll need to install these first. 
+### Windows
+
+Download the latest build from the [Releases](https://github.com/binomaiheu/nibterm/releases) page:
+
+- `nibterm-<version>-windows-x64-setup.exe` — installer (per-user, no admin rights needed), adds a Start Menu entry and an uninstaller.
+- `nibterm-<version>-windows-x64.zip` — portable version, just unzip and run `nibterm.exe`.
+
+Both include the example configuration files from `config_example/`.
+
+### From source
+
+The tool uses python & the `uv` package manager. So you'll need to install these first. 
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
@@ -89,6 +100,17 @@ pyinstaller nibterm.spec
 ```
 
 the exe will be in `dist`
+
+### Releases
+
+The [Build Windows](.github/workflows/build-windows.yml) GitHub Action builds the exe, the portable zip and the NSIS installer ([installer/nibterm.nsi](installer/nibterm.nsi)) on every push to `main` (downloadable from the workflow run). To publish a release, bump the version in `pyproject.toml` and push a matching tag:
+
+```bash
+git tag 0.10.2
+git push origin 0.10.2
+```
+
+The workflow then creates a GitHub Release with the zip and installer attached.
 
 ## Usage
 
