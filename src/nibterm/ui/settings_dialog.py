@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QSettings, Signal
-from PySide6.QtGui import QColor, QFont, QIntValidator
+from PySide6.QtGui import QColor, QIntValidator
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from ..config import defaults
 from ..config import settings_keys as SK
 from ..serial.settings import AppearanceSettings, SerialSettings
+from .fonts import monospace_font
 
 
 class SettingsDialog(QDialog):
@@ -110,6 +111,7 @@ class SettingsDialog(QDialog):
 
         form = QFormLayout()
         self._font_combo = QFontComboBox(self)
+        self._font_combo.setFontFilters(QFontComboBox.FontFilter.MonospacedFonts)
         self._font_size = QSpinBox(self)
         self._font_size.setRange(6, 32)
 
@@ -257,7 +259,9 @@ class SettingsDialog(QDialog):
         self._dtr_on_connect.setChecked(serial_settings.dtr_on_connect)
         self._log_commands.setChecked(serial_settings.log_commands)
 
-        self._font_combo.setCurrentFont(QFont(appearance.font_family, appearance.font_size))
+        self._font_combo.setCurrentFont(
+            monospace_font(appearance.font_family, appearance.font_size)
+        )
         self._font_size.setValue(appearance.font_size)
         self._update_color_previews()
 

@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer, Slot
-from PySide6.QtGui import QFont, QHideEvent, QShowEvent
+from PySide6.QtGui import QHideEvent, QShowEvent
 from PySide6.QtSerialPort import QSerialPortInfo
+
+from .fonts import monospace_font
 from PySide6.QtWidgets import (
     QGroupBox,
     QHeaderView,
@@ -47,7 +49,7 @@ class DevicesWidget(QWidget):
 
         self._log = QPlainTextEdit()
         self._log.setReadOnly(True)
-        self._log.setFont(QFont("Monospace", 9))
+        self._log.setFont(monospace_font(size=9))
         self._log.setMaximumBlockCount(1000)
         self._log.setPlaceholderText(
             "Device connect/disconnect events will appear here."

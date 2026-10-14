@@ -5,8 +5,10 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QTimer, Qt, Signal, Slot
-from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
+from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
 from PySide6.QtSerialPort import QSerialPortInfo
+
+from .fonts import monospace_font
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -110,7 +112,7 @@ class FirmwareWidget(QWidget):
         # Output display
         self._output = QPlainTextEdit()
         self._output.setReadOnly(True)
-        self._output.setFont(QFont("Monospace", 9))
+        self._output.setFont(monospace_font(size=9))
         self._output.setMaximumBlockCount(5000)
         layout.addWidget(self._output, 1)
 

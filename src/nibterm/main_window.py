@@ -124,10 +124,14 @@ class MainWindow(QMainWindow):
         self._send_button = QPushButton("Send")
         self._send_button.clicked.connect(self._send_input)
         self._input_line.returnPressed.connect(self._send_input_if_enabled)
+        self._clear_button = QPushButton("Clear")
+        self._clear_button.setToolTip("Clear terminal output")
+        self._clear_button.clicked.connect(self._console.clear)
 
         input_row = QHBoxLayout()
         input_row.addWidget(self._input_line)
         input_row.addWidget(self._send_button)
+        input_row.addWidget(self._clear_button)
 
         terminal_layout = QVBoxLayout()
         terminal_layout.addWidget(self._console)

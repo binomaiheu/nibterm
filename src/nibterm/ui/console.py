@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QDateTime, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPalette, QTextCharFormat, QTextCursor
+from PySide6.QtGui import QColor, QPalette, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit
 
 from ..config import defaults
+from .fonts import monospace_font
 
 
 class ConsoleWidget(QPlainTextEdit):
@@ -47,7 +48,7 @@ class ConsoleWidget(QPlainTextEdit):
         background_color: str,
         text_color: str,
     ) -> None:
-        font = QFont(font_family, font_size)
+        font = monospace_font(font_family, font_size)
         self.setFont(font)
 
         palette = self.palette()
