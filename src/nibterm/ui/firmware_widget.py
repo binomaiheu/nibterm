@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QTimer, Qt, Signal, Slot
-from PySide6.QtGui import QColor, QTextCharFormat, QTextCursor
+from PySide6.QtGui import QColor, QFont, QTextBlockFormat, QTextCharFormat, QTextCursor
 from PySide6.QtSerialPort import QSerialPortInfo
 
 from .fonts import monospace_font
@@ -45,6 +45,10 @@ class FirmwareWidget(QWidget):
         self._connect_signals()
 
     # -- UI construction ----------------------------------------------------
+
+    def set_text_font(self, font: QFont) -> None:
+        """Set the font used for the output log."""
+        self._output.setFont(font)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -344,7 +348,7 @@ class FirmwareWidget(QWidget):
             QTextCursor.MoveOperation.StartOfBlock, QTextCursor.MoveMode.KeepAnchor
         )
         cursor.removeSelectedText()
-        cursor.insertText(line)
+        cursor.insertText(line, QTextCharFormat())
         self._output.setTextCursor(cursor)
         self._output.ensureCursorVisible()
 
@@ -353,7 +357,9 @@ class FirmwareWidget(QWidget):
         cursor.movePosition(QTextCursor.MoveOperation.End)
         fmt = QTextCharFormat()
         fmt.setForeground(QColor("#2196F3"))
-        cursor.insertText(f"[nibterm] {text}\n", fmt)
+        cursor.insertText(f"[nibterm] {text}", fmt)
+        # Start the next line with a plain format so the color doesn't carry over.
+        cursor.insertBlock(QTextBlockFormat(), QTextCharFormat())
         self._output.setTextCursor(cursor)
         self._output.ensureCursorVisible()
         if self._upload_logger.is_active():
@@ -364,7 +370,8 @@ class FirmwareWidget(QWidget):
         cursor.movePosition(QTextCursor.MoveOperation.End)
         fmt = QTextCharFormat()
         fmt.setForeground(QColor("#F44336"))
-        cursor.insertText(f"[nibterm] {text}\n", fmt)
+        cursor.insertText(f"[nibterm] {text}", fmt)
+        cursor.insertBlock(QTextBlockFormat(), QTextCharFormat())
         self._output.setTextCursor(cursor)
         self._output.ensureCursorVisible()
 

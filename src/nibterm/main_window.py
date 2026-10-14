@@ -107,12 +107,6 @@ class MainWindow(QMainWindow):
         self._settings_dialog.settings_applied.connect(self._apply_settings)
 
         self._console = ConsoleWidget()
-        self._console.set_appearance(
-            self._appearance_settings.font_family,
-            self._appearance_settings.font_size,
-            self._appearance_settings.background_color,
-            self._appearance_settings.text_color,
-        )
         max_blocks = self._settings.value(
             SK.CONSOLE_MAX_BLOCK_COUNT, defaults.DEFAULT_CONSOLE_MAX_BLOCK_COUNT, int
         )
@@ -179,6 +173,7 @@ class MainWindow(QMainWindow):
         self._firmware_tab_index = self._tabs.addTab(self._firmware_widget, "Firmware")
         self._firmware_widget.port_release_requested.connect(self._release_port_for_upload)
         self._firmware_widget.upload_complete.connect(self._reclaim_port_after_upload)
+        self._apply_appearance()
         self._port_released_for_upload = False
         self._tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
@@ -394,6 +389,10 @@ class MainWindow(QMainWindow):
             self._appearance_settings.background_color,
             self._appearance_settings.text_color,
         )
+        # Message/output views share the terminal font (colors stay default).
+        font = self._console.font()
+        self._mqtt_monitor_widget.set_text_font(font)
+        self._firmware_widget.set_text_font(font)
 
     def _apply_settings(
         self,

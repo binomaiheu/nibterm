@@ -52,6 +52,7 @@ MQTT_PASSWORD = "mqtt/password"
 MQTT_USE_TLS = "mqtt/use_tls"
 MQTT_CA_CERTIFICATE = "mqtt/ca_certificate"
 MQTT_TLS_INSECURE = "mqtt/tls_insecure"
+MQTT_TLS_RELAX_STRICT = "mqtt/tls_relax_strict"
 MQTT_TOPIC_ROOT = "mqtt/topic_root"
 MQTT_PLOT_VAR_COUNT = "mqtt/plot_var_count"
 MQTT_PLOT_VAR_TOPIC = "mqtt/plot_var_topic_{}"  # format with index

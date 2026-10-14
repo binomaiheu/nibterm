@@ -10,7 +10,7 @@ from typing import Callable
 logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import QEvent, QPoint, Qt, Signal, Slot
-from PySide6.QtGui import QColor, QMouseEvent, QTextCharFormat, QTextCursor
+from PySide6.QtGui import QColor, QFont, QMouseEvent, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -165,6 +165,10 @@ class MQTTMonitorWidget(QWidget):
 
         # Listen for external changes (e.g. Variables dialog)
         self._variable_manager.variables_changed.connect(self._refresh_table_from_manager)
+
+    def set_text_font(self, font: QFont) -> None:
+        """Set the font used for the message display."""
+        self._message_display.setFont(font)
 
     def refresh_from_manager(self) -> None:
         """Public method -- called by MainWindow after Variables dialog changes."""

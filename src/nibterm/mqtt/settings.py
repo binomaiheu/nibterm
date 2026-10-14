@@ -16,6 +16,7 @@ class MQTTSettings:
     use_tls: bool = False
     ca_certificate: str = ""
     tls_insecure: bool = False
+    tls_relax_strict: bool = False
     topic_root: str = ""
 
     def to_qsettings(self, settings: QSettings) -> None:
@@ -26,6 +27,7 @@ class MQTTSettings:
         settings.setValue(SK.MQTT_USE_TLS, self.use_tls)
         settings.setValue(SK.MQTT_CA_CERTIFICATE, self.ca_certificate)
         settings.setValue(SK.MQTT_TLS_INSECURE, self.tls_insecure)
+        settings.setValue(SK.MQTT_TLS_RELAX_STRICT, self.tls_relax_strict)
         settings.setValue(SK.MQTT_TOPIC_ROOT, self.topic_root)
 
     @staticmethod
@@ -38,5 +40,6 @@ class MQTTSettings:
             use_tls=settings.value(SK.MQTT_USE_TLS, False, bool),
             ca_certificate=settings.value(SK.MQTT_CA_CERTIFICATE, "", str),
             tls_insecure=settings.value(SK.MQTT_TLS_INSECURE, False, bool),
+            tls_relax_strict=settings.value(SK.MQTT_TLS_RELAX_STRICT, False, bool),
             topic_root=settings.value(SK.MQTT_TOPIC_ROOT, "", str),
         )

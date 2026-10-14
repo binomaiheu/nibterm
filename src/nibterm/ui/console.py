@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QDateTime, Qt, Signal
-from PySide6.QtGui import QColor, QPalette, QTextCharFormat, QTextCursor
+from PySide6.QtGui import QColor, QPalette, QTextBlockFormat, QTextCharFormat, QTextCursor
 from PySide6.QtWidgets import QPlainTextEdit
 
 from ..config import defaults
@@ -80,6 +80,7 @@ class ConsoleWidget(QPlainTextEdit):
         segments = display_text.split("\n")
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
+        cursor.setCharFormat(QTextCharFormat())
         for i, segment in enumerate(segments):
             # Only add timestamp when we have content to show (avoids duplicate timestamps
             # when data arrives in chunks like "\n" then "line\n", and avoids timestamp on bare \r).
@@ -127,9 +128,7 @@ class ConsoleWidget(QPlainTextEdit):
             fmt.setForeground(QColor(color))
             cursor.setCharFormat(fmt)
         cursor.insertText(text)
-        cursor.insertBlock()
-        if color is not None:
-            cursor.setCharFormat(QTextCharFormat())
+        cursor.insertBlock(QTextBlockFormat(), QTextCharFormat())
         if saved_scroll is not None:
             self._programmatic_scroll = True
             self.setTextCursor(cursor)
@@ -158,8 +157,7 @@ class ConsoleWidget(QPlainTextEdit):
         fmt.setForeground(QColor(color))
         cursor.setCharFormat(fmt)
         cursor.insertText(message)
-        cursor.insertBlock()
-        cursor.setCharFormat(QTextCharFormat())
+        cursor.insertBlock(QTextBlockFormat(), QTextCharFormat())
         if saved_scroll is not None:
             self._programmatic_scroll = True
             self.setTextCursor(cursor)

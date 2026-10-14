@@ -72,6 +72,10 @@ class MQTTManager(QObject):
             ctx = ssl.create_default_context()
             if self._settings.ca_certificate:
                 ctx.load_verify_locations(self._settings.ca_certificate)
+            if self._settings.tls_relax_strict:
+                # Python 3.13+ enables strict RFC 5280 checks by default, which
+                # reject e.g. CA certs without a key usage extension.
+                ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
             if self._settings.tls_insecure:
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE

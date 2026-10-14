@@ -40,6 +40,12 @@ class MQTTSettingsDialog(QDialog):
         ca_row = QHBoxLayout()
         ca_row.addWidget(self._ca_cert)
         ca_row.addWidget(self._ca_cert_browse)
+        self._tls_relax_strict = QCheckBox("Relax strict certificate checks")
+        self._tls_relax_strict.setToolTip(
+            "Accept CA certificates that don't fully conform to RFC 5280\n"
+            "(e.g. missing key usage extension), as Python < 3.13 did.\n"
+            "The certificate chain and hostname are still verified."
+        )
         self._tls_insecure = QCheckBox("Skip server certificate verification (insecure)")
         self._topic_root = QLineEdit()
         self._topic_root.setPlaceholderText("e.g. sensors or leave empty for #")
@@ -50,6 +56,7 @@ class MQTTSettingsDialog(QDialog):
         form.addRow("Password", self._password)
         form.addRow("", self._use_tls)
         form.addRow("CA certificate", ca_row)
+        form.addRow("", self._tls_relax_strict)
         form.addRow("", self._tls_insecure)
         form.addRow("Topic root", self._topic_root)
 
@@ -80,6 +87,7 @@ class MQTTSettingsDialog(QDialog):
         self._password.setText(settings.password or "")
         self._use_tls.setChecked(settings.use_tls)
         self._ca_cert.setText(settings.ca_certificate or "")
+        self._tls_relax_strict.setChecked(settings.tls_relax_strict)
         self._tls_insecure.setChecked(settings.tls_insecure)
         self._topic_root.setText(settings.topic_root or "")
 
@@ -91,6 +99,7 @@ class MQTTSettingsDialog(QDialog):
             password=self._password.text().strip(),
             use_tls=self._use_tls.isChecked(),
             ca_certificate=self._ca_cert.text().strip(),
+            tls_relax_strict=self._tls_relax_strict.isChecked(),
             tls_insecure=self._tls_insecure.isChecked(),
             topic_root=self._topic_root.text().strip(),
         )
